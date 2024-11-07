@@ -6,7 +6,7 @@
 
 // #define TINY_GSM_MODEM_SIM7600
 #include <TinyGsmClient.h>
-#define DUMP_AT_COMMANDS 0
+// #define DUMP_AT_COMMANDS 0
 
 #ifdef DUMP_AT_COMMANDS
 #include <StreamDebugger.h>
@@ -28,6 +28,15 @@ enum class SimType
     SIM7070,
     SIM7600
 };
+
+typedef struct
+{
+    float lat;
+    float lon;
+    float speed;
+    float alt;
+} GPSData;
+
 class Cellular : public Connection
 {
 public:
@@ -45,10 +54,15 @@ public:
     bool init();
     void maintain();
     TinyGsm &getModem();
-    SSLClientESP32 &getClient();
+    Client *getClient();
+    void enableGPS();
+    void disableGPS();
+    GPSData getGPSData();
 
 private:
+#ifdef DUMP_AT_COMMANDS
     StreamDebugger debugger;
+#endif
     TinyGsmClient gsmClient;
     SSLClientESP32 sslClient;
     TinyGsm modem;
@@ -67,8 +81,6 @@ private:
     void initModem();
     void setupPower();
     bool setupNetwork();
-    void enableGPS();
-    void disableGPS();
     void terminateThreads();
 };
 #endif

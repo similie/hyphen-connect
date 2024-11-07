@@ -1,13 +1,16 @@
 #include "AWSMQTTProcessor.h"
 
-AWSMQTTProcessor::AWSMQTTProcessor(Connection *connection)
-    : connection(connection)
+AWSMQTTProcessor::AWSMQTTProcessor(Connection &connection)
+    : connection(connection),
+      connectionClient(connection.getClient()),
+      sslClient(connectionClient)
 {
+    mqttClient.setClient(sslClient);
 }
 
 bool AWSMQTTProcessor::init()
 {
-    while (!connection->init())
+    while (!connection.init())
         ;
     lastInActivity = millis();
     Serial.println("Cellular initialized");
@@ -21,28 +24,15 @@ bool AWSMQTTProcessor::connectServer()
         Serial.println("Failed to load certificates.");
         return false;
     }
-    mqttClient.setClient(connection->getClient());
+    // mqttClient.flush();
+    mqttClient.setKeepAlive(30);
     mqttClient.setServer(AWS_IOT_ENDPOINT, AWS_IOT_PORT);
     mqttClient.setCallback([this](char *topic, byte *payload, unsigned int length)
                            { mqttCallback(topic, payload, length); });
     Serial.println("MQTT initialized");
+    subscribeToTopics();
     return connect();
 }
-
-// IPAddress AWSMQTTProcessor::resolveHostname(const char *hostname)
-// {
-//     IPAddress resolvedIP;
-//     // if (!cellular->getModem().getHostByName(hostname, resolvedIP)) {
-//     //     Serial.print("DNS resolution failed for hostname: ");
-//     //     Serial.println(hostname);
-//     //     return IPAddress(); // Return an empty IP address if resolution fails
-//     // }
-//     Serial.print("Resolved IP for ");
-//     Serial.print(hostname);
-//     Serial.print(" is ");
-//     Serial.println(resolvedIP);
-//     return resolvedIP;
-// }
 
 bool AWSMQTTProcessor::keepAliveReady()
 {
@@ -54,61 +44,104 @@ bool AWSMQTTProcessor::keepAliveReady()
     return false;
 }
 
-void AWSMQTTProcessor::loopMaintain()
-{
-    if (mqttClient.connected())
-    {
-        mqttClient.loop();
-    }
-    else
-    {
-        if (!connection->isConnected())
-        {
-            connection->connect();
-            lastInActivity = millis();
-        }
-        else
-        {
-            Serial.println("Reconnecting to MQTT...");
-            connectServer();
-        }
-
-        return;
-    }
-
-    // if (keepAliveReady())
-    // {
-    //     Serial.println("KEEPING MYSELF ALIVE");
-    //     connection->maintain();
-    // }
-}
+// void AWSMQTTProcessor::loopMaintain()
+// {
+//     digitalWrite(LED_PIN, !digitalRead(LED_PIN));
+//     mqttClient.loop();
+// }
 
 void AWSMQTTProcessor::loop()
 {
-    if (THREAD_MODE == 0)
-    {
-        loopMaintain();
-    }
-}
-
-void AWSMQTTProcessor::setThread()
-{
-    if (maintainConnectHandle != NULL)
+    lastInActivity = millis();
+    bool connected = mqttClient.connected();
+    if (connected)
     {
         return;
     }
-    xTaskCreatePinnedToCore(maintainConnection, "MaintainConnection", 4096, this, 1, &maintainConnectHandle, 1);
-    // xTaskCreatePinnedToCore(keepAliveTask, "KeepAliveTask", 4096, this, 1, &keepAliveHandle, 1);
-}
-void AWSMQTTProcessor::maintainConnection(void *param)
-{
-    AWSMQTTProcessor *processor = static_cast<AWSMQTTProcessor *>(param);
-    while (1)
+
+    // if (THREAD_MODE == 0 && connected && false)
+    // {
+    //     return loopMaintain();
+    // }
+    // else if (connected)
+    // {
+    //     return;
+    // }
+
+    if (!connection.isConnected())
     {
-        processor->loopMaintain();
-        vTaskDelay(100);
+        connection.connect();
+    }
+    else
+    {
+        Serial.println("Reconnecting to MQTT...");
+        reconnect();
     }
 }
+
+// void AWSMQTTProcessor::setThread()
+// {
+//     if (maintainConnectHandle != NULL)
+//     {
+//         return;
+//     }
+//     // can't find the sweet spot for size to run this in thread
+//     xTaskCreatePinnedToCore(maintainConnection, "MaintainConnection", 8192, this, 1, &maintainConnectHandle, 1);
+// }
+
+void AWSMQTTProcessor::maintenanceCallback(AWSMQTTProcessor *instance)
+{
+    static_cast<AWSMQTTProcessor *>(instance)->runMaintenanceConnection();
+}
+
+void AWSMQTTProcessor::startMaintenanceLoop()
+{
+    tick.attach_ms<AWSMQTTProcessor *>(500, &AWSMQTTProcessor::maintenanceCallback, this);
+}
+
+void AWSMQTTProcessor::runMaintenanceConnection()
+{
+    if (!isConnected())
+    {
+        Serial.println("Breaking Loop Thread...");
+        digitalWrite(LED_PIN, LOW);
+        return tick.detach();
+    }
+    vTaskDelay(1); // Delay for 1 tick (typically 1 ms)
+    if (keepAliveReady())
+    {
+        loop();
+    }
+    vTaskDelay(1); // Delay for 1 tick (typically 1 ms)
+    mqttClient.loop();
+    vTaskDelay(1); // Delay for 1 tick (typically 1 ms)
+    digitalWrite(LED_PIN, !digitalRead(LED_PIN));
+    // vTaskDelay(1); // Delay for 1 tick (typically 1 ms)
+}
+// /**
+//  * @brief Seems to crash the system when running in thread mode
+//  *
+//  * @param param
+//  */
+// void AWSMQTTProcessor::maintainConnection(void *param)
+// {
+//     AWSMQTTProcessor *processor = static_cast<AWSMQTTProcessor *>(param);
+//     while (1)
+//     {
+//         digitalWrite(LED_PIN, LOW);
+//         if (!processor->isConnected())
+//         {
+//             Serial.println("Breaking Loop Thread...");
+//             break;
+//         }
+//         processor->loopMaintain();
+//         taskYIELD();
+//         digitalWrite(LED_PIN, HIGH);
+//         vTaskDelay(50);
+//         digitalWrite(LED_PIN, LOW);
+//         vTaskDelay(1000);
+//     }
+// }
 
 bool AWSMQTTProcessor::loadCertificates()
 {
@@ -117,7 +150,6 @@ bool AWSMQTTProcessor::loadCertificates()
         Serial.println("Failed to initialize SPIFFS");
         return false;
     }
-
     // Load Amazon Root CA
     File ca = SPIFFS.open("/aws-root-ca.pem", "r");
     if (!ca)
@@ -134,9 +166,7 @@ bool AWSMQTTProcessor::loadCertificates()
     }
     Serial.println("Loaded CA certificate:");
     Serial.println(caContent);
-
-    connection->getClient().setCACert(caContent.c_str());
-
+    sslClient.setCACert(caContent.c_str());
     // Load Device Certificate
     File cert = SPIFFS.open("/aws-device-cert.pem", "r");
     if (!cert)
@@ -153,8 +183,7 @@ bool AWSMQTTProcessor::loadCertificates()
     }
     Serial.println("Loaded device certificate:");
     Serial.println(certContent);
-    connection->getClient().setCertificate(certContent.c_str());
-
+    sslClient.setCertificate(certContent.c_str());
     // Load Device Private Key
     File key = SPIFFS.open("/aws-private-key.pem", "r");
     if (!key)
@@ -171,28 +200,50 @@ bool AWSMQTTProcessor::loadCertificates()
     }
     Serial.println("Loaded private key:");
     Serial.println(keyContent);
-    connection->getClient().setPrivateKey(keyContent.c_str());
+    sslClient.setPrivateKey(keyContent.c_str());
     SPIFFS.end();
     return true;
 }
-
+bool AWSMQTTProcessor::hardDisconnect()
+{
+    Serial.println("Restarting connection with a hard disconnect...");
+    connectCount = 0;
+    disconnect();
+    delay(100);
+    connection.disconnect();
+    connection.off();
+    delay(1000);
+    if (!connection.on())
+    {
+        Serial.println("Failed to turn on cellular network.");
+        return false;
+    }
+    return init();
+}
 bool AWSMQTTProcessor::connect()
 {
-    if (!connection->isConnected())
+    if (connectCount >= HARD_CONNECTION_RESTART)
     {
+        return hardDisconnect();
+    }
+
+    if (!connection.isConnected())
+    {
+        connectCount = 0;
         Serial.println("Waiting for cellular connection...");
-        if (!connection->connect())
+        if (!connection.connect())
         {
             Serial.println("Failed to connect cellular network.");
             return false;
         }
     }
-
+    connectCount++;
     return setupAWSConnection();
 }
 
 bool AWSMQTTProcessor::setupAWSConnection()
 {
+    // destroyThread();
     Serial.print("Setting up AWS connection... ");
     Serial.println(AWS_CLIENT_ID);
 
@@ -204,26 +255,44 @@ bool AWSMQTTProcessor::setupAWSConnection()
 
     Serial.println("Connected to AWS IoT Core.");
 
-    if (THREAD_MODE == 1)
-    {
-        setThread();
-    }
-
+    // if (THREAD_MODE == 1)
+    // {
+    //     setThread();
+    // }
+    startMaintenanceLoop();
+    // subscribeToTopics();
+    connectCount = 0;
     return true;
+}
+
+// void AWSMQTTProcessor::destroyThread()
+// {
+//     if (maintainConnectHandle == NULL)
+//     {
+//         return;
+//     }
+//     vTaskDelete(maintainConnectHandle);
+//     maintainConnectHandle = NULL;
+//     delay(300);
+// }
+
+void AWSMQTTProcessor::reconnect()
+{
+    Serial.println("Reconnecting to AWS IoT Core...");
+    disconnect();
+    delay(500);
+    connectServer();
 }
 
 void AWSMQTTProcessor::disconnect()
 {
-
-    if (maintainConnectHandle != NULL)
-    {
-        Serial.println("Deleting keepAlive task...");
-        vTaskDelete(maintainConnectHandle);
-        maintainConnectHandle = NULL;
-    }
-    delay(300);
+    digitalWrite(LED_PIN, LOW);
+    tick.detach();
+    delay(100);
+    // destroyThread();
     mqttClient.disconnect();
-    connection->disconnect();
+    sslClient.stop();
+    delay(300);
 }
 
 bool AWSMQTTProcessor::isConnected()
@@ -236,20 +305,36 @@ bool AWSMQTTProcessor::publish(const char *topic, const char *payload)
     return mqttClient.publish(topic, payload);
 }
 
-bool AWSMQTTProcessor::subscribe(const char *topic)
+bool AWSMQTTProcessor::subscribeToTopic(const char *topic)
 {
+    Serial.print("SUBSCRIBING TO: ");
+    Serial.println(topic);
     return mqttClient.subscribe(topic);
+}
+
+void AWSMQTTProcessor::subscribeToTopics()
+{
+    CommunicationRegistry::getInstance().iterateCallbacks([this](const char *topic)
+                                                          { subscribeToTopic(topic); });
+}
+
+bool AWSMQTTProcessor::subscribe(const char *topic, std::function<void(const char *, const char *)> callback)
+{
+    if (!CommunicationRegistry::getInstance().hasCallback(topic))
+    {
+        subscribeToTopic(topic);
+    }
+    CommunicationRegistry::getInstance().registerCallback(topic, callback);
+    return true;
 }
 
 void AWSMQTTProcessor::mqttCallback(char *topic, byte *payload, unsigned int length)
 {
-    Serial.print("Message arrived on topic: ");
-    Serial.println(topic);
-    Serial.print("Message: ");
-
+    String message = "";
     for (unsigned int i = 0; i < length; i++)
     {
-        Serial.print((char)payload[i]);
+        char c = (char)payload[i];
+        message += c;
     }
-    Serial.println();
+    CommunicationRegistry::getInstance().triggerCallbacks(topic, message.c_str());
 }

@@ -13,7 +13,7 @@ public:
     virtual bool off() = 0;
     virtual bool keepAlive(uint8_t) = 0;
     virtual void maintain() = 0;
-    virtual SSLClientESP32 &getClient() = 0;
+    virtual Client *getClient() = 0;
     virtual bool init() = 0;
     // virtual bool sendData(const std::string &data, const std::string &topic) = 0;
     // virtual bool receiveData(std::string &data) = 0;

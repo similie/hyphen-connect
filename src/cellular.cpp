@@ -11,9 +11,56 @@ Cellular::Cellular()
     connected = false;
 }
 
-SSLClientESP32 &Cellular::getClient()
+TinyGsm &Cellular::getModem()
 {
-    return sslClient;
+    return modem;
+}
+
+Client *Cellular::getClient()
+{
+    return new TinyGsmClient(modem, 0);
+}
+
+GPSData Cellular::getGPSData()
+{
+    enableGPS();
+    delay(300);
+    GPSData data = {0, 0, 0, 0};
+
+    unsigned long startTime = millis();
+    const unsigned long timeout = 10000;
+    tick.attach_ms(200, []()
+                   { digitalWrite(LED_PIN, !digitalRead(LED_PIN)); });
+
+    while (millis() - startTime < timeout)
+    {
+
+        if (modem.getGPS(&data.lat, &data.lon, &data.speed, &data.alt))
+        {
+            // Check if we received a non-zero position
+            if (data.lat != 0.0 && data.lon != 0.0)
+            {
+                break;
+            }
+        }
+
+        delay(1000); // Wait a second before retrying
+    }
+
+    Serial.print("Raw GPS data: ");
+    Serial.printf("RAW GPS %s\n", modem.getGPSraw().c_str());
+
+    modem.sendAT("+CGNSINF"); // Query GPS information
+
+    if (modem.waitResponse(10000L))
+    {
+        String gpsData = modem.stream.readStringUntil('\n');
+        Serial.printf("GPS data not available %s\n", gpsData.c_str());
+    }
+    tick.detach();
+    digitalWrite(LED_PIN, LOW);
+    disableGPS();
+    return data;
 }
 
 // Power setup for the modem
@@ -29,6 +76,7 @@ void Cellular::setupPower()
     delay(500);
     digitalWrite(PWR_PIN, LOW);
 
+    pinMode(IND_PIN, INPUT);
     // pinMode(LED_PIN, OUTPUT);
     // digitalWrite(LED_PIN, LOW);
 }
@@ -117,11 +165,6 @@ void Cellular::initModem()
     connected = setupNetwork();
 }
 
-TinyGsm &Cellular::getModem()
-{
-    return modem;
-}
-
 void Cellular::maintain()
 {
     if (!connected)
@@ -131,7 +174,6 @@ void Cellular::maintain()
     bool connection = isConnected();
     Serial.print("Maintain ");
     Serial.println(connected);
-
     if (connection && connected)
     {
         return modem.maintain();
@@ -208,17 +250,20 @@ bool Cellular::keepAlive(uint8_t seconds)
 // Enable GPS functionality
 void Cellular::enableGPS()
 {
+
     modem.sendAT("+CGNSPWR=1");
-    if (modem.waitResponse(10000L) != 1)
+    if (modem.waitResponse(20000L) != 1)
     {
         SerialMon.println("Failed to enable GNSS power");
     }
+    modem.enableGPS();
 }
 
 // Disable GPS functionality
 void Cellular::disableGPS()
 {
     modem.sendAT("+CGNSPWR=0");
+    modem.disableGPS();
 }
 
 // Set up the network mode for LTE/GSM
