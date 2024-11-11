@@ -1,4 +1,4 @@
-#include "cellular.h"
+#include "connections/Cellular.h"
 
 Cellular::Cellular()
 #ifdef DUMP_AT_COMMANDS
@@ -29,8 +29,8 @@ GPSData Cellular::getGPSData()
 
     unsigned long startTime = millis();
     const unsigned long timeout = 10000;
-    tick.attach_ms(200, []()
-                   { digitalWrite(LED_PIN, !digitalRead(LED_PIN)); });
+    // tick.attach_ms(200, []()
+    //                { digitalWrite(LED_PIN, !digitalRead(LED_PIN)); });
 
     while (millis() - startTime < timeout)
     {
@@ -57,7 +57,7 @@ GPSData Cellular::getGPSData()
         String gpsData = modem.stream.readStringUntil('\n');
         Serial.printf("GPS data not available %s\n", gpsData.c_str());
     }
-    tick.detach();
+    // tick.detach();
     digitalWrite(LED_PIN, LOW);
     disableGPS();
     return data;
@@ -68,15 +68,15 @@ void Cellular::setupPower()
 {
 
     delay(10);
-    pinMode(POWER_PIN, OUTPUT);
-    digitalWrite(POWER_PIN, HIGH);
+    pinMode(CELLULAR_POWER_PIN, OUTPUT);
+    digitalWrite(CELLULAR_POWER_PIN, HIGH);
 
-    pinMode(PWR_PIN, OUTPUT);
-    digitalWrite(PWR_PIN, HIGH);
+    pinMode(CELLULAR_PWR_PIN, OUTPUT);
+    digitalWrite(CELLULAR_PWR_PIN, HIGH);
     delay(500);
-    digitalWrite(PWR_PIN, LOW);
+    digitalWrite(CELLULAR_PWR_PIN, LOW);
 
-    pinMode(IND_PIN, INPUT);
+    pinMode(CELLULAR_IND_PIN, INPUT);
     // pinMode(LED_PIN, OUTPUT);
     // digitalWrite(LED_PIN, LOW);
 }
@@ -92,9 +92,10 @@ bool Cellular::init()
     if (connect())
     {
         SerialMon.println("Connected to network.");
-        return keepAlive(30);
+        return true; // keepAlive(30);
     }
     SerialMon.println("Failed to connect.");
+
     return false;
 }
 
@@ -121,7 +122,7 @@ bool Cellular::on()
 
     setupPower();
     delay(10000);
-    SerialAT.begin(UART_BAUD, SERIAL_8N1, PIN_RX, PIN_TX);
+    SerialAT.begin(UART_BAUD, SERIAL_8N1, CELLULAR_PIN_RX, CELLULAR_PIN_TX);
     initModem();
     return connected;
 }
@@ -162,6 +163,12 @@ void Cellular::initModem()
         SerialMon.println("Failed to initialize modem.");
         return;
     }
+
+    if (modem.getSimStatus() != 3 && GSM_SIM_PIN)
+    {
+        modem.simUnlock(GSM_SIM_PIN);
+    }
+
     connected = setupNetwork();
 }
 
@@ -180,7 +187,7 @@ void Cellular::maintain()
     }
     connected = false;
     Serial.println("Reconnecting...");
-    modem.restart();
+    modem.init();
     connect();
 }
 

@@ -15,9 +15,6 @@ public:
     virtual void maintain() = 0;
     virtual Client *getClient() = 0;
     virtual bool init() = 0;
-    // virtual bool sendData(const std::string &data, const std::string &topic) = 0;
-    // virtual bool receiveData(std::string &data) = 0;
-
     // Virtual Destructor
     virtual ~Connection() {}
 };

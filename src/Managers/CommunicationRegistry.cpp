@@ -1,4 +1,4 @@
-#include "CommunicationRegistry.h"
+#include "managers/CommunicationRegistry.h"
 
 CommunicationRegistry::CommunicationRegistry()
 {
@@ -22,12 +22,54 @@ void CommunicationRegistry::iterateCallbacks(std::function<void(const char *)> c
     }
 }
 
+u_int8_t CommunicationRegistry::hasWildCard(String topic)
+{
+    bool wild = topic.indexOf("#") != -1 || topic.indexOf("+") != -1;
+    if (!wild)
+    {
+        return 0;
+    }
+    if (topic.indexOf("+") != -1)
+    {
+        return 1;
+    }
+    return 2;
+}
+
+String CommunicationRegistry::callbackName(String cbName)
+{
+    bool isWild = hasWildCard(cbName);
+    if (isWild == 0)
+    {
+        return cbName;
+    }
+
+    int lastSlash = cbName.lastIndexOf("/");
+    return cbName.substring(0, lastSlash);
+}
+
+bool CommunicationRegistry::matchCallback(String callback, String topic)
+{
+    if (callback == topic)
+    {
+        return true;
+    }
+
+    if (hasWildCard(callback) == 0)
+    {
+        return false;
+    }
+
+    String cbName = callbackName(callback);
+    return topic.startsWith(cbName);
+}
+
 int CommunicationRegistry::callbackIndex(const std::string &topic)
 {
     int index = -1;
     for (size_t i = 0; i < callbackCount; i++)
     {
-        if (callbacks[i] == topic)
+        if (matchCallback(String(callbacks[i].c_str()), String(topic.c_str())))
         {
             index = i;
             break;
@@ -84,8 +126,9 @@ bool CommunicationRegistry::registerCallback(const std::string &topic, std::func
 // Triggers all registered callbacks for a specific topic
 void CommunicationRegistry::triggerCallbacks(const std::string &topic, const char *payload)
 {
-    auto it = topicCallbacks.find(topic);
-
+    int index = callbackIndex(topic);
+    const std::string searchTopic = callbacks[index];
+    auto it = topicCallbacks.find(searchTopic);
     // If there are registered callbacks for this topic, execute them
     if (it != topicCallbacks.end())
     {

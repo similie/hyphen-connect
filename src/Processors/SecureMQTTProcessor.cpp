@@ -1,14 +1,11 @@
-#include "AWSMQTTProcessor.h"
+#include "processors/SecureMQTTProcessor.h"
 
-AWSMQTTProcessor::AWSMQTTProcessor(Connection &connection)
-    : connection(connection),
-      connectionClient(connection.getClient()),
-      sslClient(connectionClient)
+SecureMQTTProcessor::SecureMQTTProcessor(Connection &connection)
+    : connection(connection)
 {
-    mqttClient.setClient(sslClient);
 }
 
-bool AWSMQTTProcessor::init()
+bool SecureMQTTProcessor::init()
 {
     while (!connection.init())
         ;
@@ -17,24 +14,40 @@ bool AWSMQTTProcessor::init()
     return connectServer();
 }
 
-bool AWSMQTTProcessor::connectServer()
+bool SecureMQTTProcessor::connectServer()
 {
+    if (!connection.isConnected())
+    {
+        Serial.println("Network connection is not established.");
+        return false;
+    }
+    Client *netClient = connection.getClient();
+    if (netClient == nullptr)
+    {
+        Serial.println("Failed to get network client.");
+        return false;
+    }
+    // slight delay to allow the modem to get ready for a new connection
+    delay(1000);
+
     if (!loadCertificates())
     {
         Serial.println("Failed to load certificates.");
         return false;
     }
-    // mqttClient.flush();
-    mqttClient.setKeepAlive(30);
-    mqttClient.setServer(AWS_IOT_ENDPOINT, AWS_IOT_PORT);
+
+    // delay(300);
+    sslClient.setClient(netClient);
+    mqttClient.setClient(sslClient);
+    mqttClient.setKeepAlive(KEEP_ALIVE);
+    mqttClient.setServer(MQTT_IOT_ENDPOINT, MQTT_IOT_PORT);
     mqttClient.setCallback([this](char *topic, byte *payload, unsigned int length)
                            { mqttCallback(topic, payload, length); });
     Serial.println("MQTT initialized");
-    subscribeToTopics();
     return connect();
 }
 
-bool AWSMQTTProcessor::keepAliveReady()
+bool SecureMQTTProcessor::keepAliveReady()
 {
     if (millis() - lastInActivity > KEEP_ALIVE_INTERVAL)
     {
@@ -44,29 +57,22 @@ bool AWSMQTTProcessor::keepAliveReady()
     return false;
 }
 
-// void AWSMQTTProcessor::loopMaintain()
-// {
-//     digitalWrite(LED_PIN, !digitalRead(LED_PIN));
-//     mqttClient.loop();
-// }
-
-void AWSMQTTProcessor::loop()
+void SecureMQTTProcessor::loop()
 {
-    lastInActivity = millis();
-    bool connected = mqttClient.connected();
-    if (connected)
+    mqttClient.loop();
+
+    if (!keepAliveReady())
     {
         return;
     }
-
-    // if (THREAD_MODE == 0 && connected && false)
-    // {
-    //     return loopMaintain();
-    // }
-    // else if (connected)
-    // {
-    //     return;
-    // }
+    connection.maintain();
+    bool connected = mqttClient.connected();
+    if (connected)
+    {
+        lastInActivity = millis();
+        return;
+    }
+    light.endBreathing();
 
     if (!connection.isConnected())
     {
@@ -77,73 +83,10 @@ void AWSMQTTProcessor::loop()
         Serial.println("Reconnecting to MQTT...");
         reconnect();
     }
+    lastInActivity = millis();
 }
 
-// void AWSMQTTProcessor::setThread()
-// {
-//     if (maintainConnectHandle != NULL)
-//     {
-//         return;
-//     }
-//     // can't find the sweet spot for size to run this in thread
-//     xTaskCreatePinnedToCore(maintainConnection, "MaintainConnection", 8192, this, 1, &maintainConnectHandle, 1);
-// }
-
-void AWSMQTTProcessor::maintenanceCallback(AWSMQTTProcessor *instance)
-{
-    static_cast<AWSMQTTProcessor *>(instance)->runMaintenanceConnection();
-}
-
-void AWSMQTTProcessor::startMaintenanceLoop()
-{
-    tick.attach_ms<AWSMQTTProcessor *>(500, &AWSMQTTProcessor::maintenanceCallback, this);
-}
-
-void AWSMQTTProcessor::runMaintenanceConnection()
-{
-    if (!isConnected())
-    {
-        Serial.println("Breaking Loop Thread...");
-        digitalWrite(LED_PIN, LOW);
-        return tick.detach();
-    }
-    vTaskDelay(1); // Delay for 1 tick (typically 1 ms)
-    if (keepAliveReady())
-    {
-        loop();
-    }
-    vTaskDelay(1); // Delay for 1 tick (typically 1 ms)
-    mqttClient.loop();
-    vTaskDelay(1); // Delay for 1 tick (typically 1 ms)
-    digitalWrite(LED_PIN, !digitalRead(LED_PIN));
-    // vTaskDelay(1); // Delay for 1 tick (typically 1 ms)
-}
-// /**
-//  * @brief Seems to crash the system when running in thread mode
-//  *
-//  * @param param
-//  */
-// void AWSMQTTProcessor::maintainConnection(void *param)
-// {
-//     AWSMQTTProcessor *processor = static_cast<AWSMQTTProcessor *>(param);
-//     while (1)
-//     {
-//         digitalWrite(LED_PIN, LOW);
-//         if (!processor->isConnected())
-//         {
-//             Serial.println("Breaking Loop Thread...");
-//             break;
-//         }
-//         processor->loopMaintain();
-//         taskYIELD();
-//         digitalWrite(LED_PIN, HIGH);
-//         vTaskDelay(50);
-//         digitalWrite(LED_PIN, LOW);
-//         vTaskDelay(1000);
-//     }
-// }
-
-bool AWSMQTTProcessor::loadCertificates()
+bool SecureMQTTProcessor::loadCertificates()
 {
     if (!SPIFFS.begin(true))
     {
@@ -204,7 +147,7 @@ bool AWSMQTTProcessor::loadCertificates()
     SPIFFS.end();
     return true;
 }
-bool AWSMQTTProcessor::hardDisconnect()
+bool SecureMQTTProcessor::hardDisconnect()
 {
     Serial.println("Restarting connection with a hard disconnect...");
     connectCount = 0;
@@ -215,12 +158,12 @@ bool AWSMQTTProcessor::hardDisconnect()
     delay(1000);
     if (!connection.on())
     {
-        Serial.println("Failed to turn on cellular network.");
+        Serial.println("Failed to turn on network.");
         return false;
     }
     return init();
 }
-bool AWSMQTTProcessor::connect()
+bool SecureMQTTProcessor::connect()
 {
     if (connectCount >= HARD_CONNECTION_RESTART)
     {
@@ -233,7 +176,7 @@ bool AWSMQTTProcessor::connect()
         Serial.println("Waiting for cellular connection...");
         if (!connection.connect())
         {
-            Serial.println("Failed to connect cellular network.");
+            Serial.println("Failed to connect network.");
             return false;
         }
     }
@@ -241,9 +184,8 @@ bool AWSMQTTProcessor::connect()
     return setupAWSConnection();
 }
 
-bool AWSMQTTProcessor::setupAWSConnection()
+bool SecureMQTTProcessor::setupAWSConnection()
 {
-    // destroyThread();
     Serial.print("Setting up AWS connection... ");
     Serial.println(AWS_CLIENT_ID);
 
@@ -253,30 +195,15 @@ bool AWSMQTTProcessor::setupAWSConnection()
         return false;
     }
 
+    subscribeToTopics();
     Serial.println("Connected to AWS IoT Core.");
 
-    // if (THREAD_MODE == 1)
-    // {
-    //     setThread();
-    // }
-    startMaintenanceLoop();
-    // subscribeToTopics();
+    light.startBreathing();
     connectCount = 0;
     return true;
 }
 
-// void AWSMQTTProcessor::destroyThread()
-// {
-//     if (maintainConnectHandle == NULL)
-//     {
-//         return;
-//     }
-//     vTaskDelete(maintainConnectHandle);
-//     maintainConnectHandle = NULL;
-//     delay(300);
-// }
-
-void AWSMQTTProcessor::reconnect()
+void SecureMQTTProcessor::reconnect()
 {
     Serial.println("Reconnecting to AWS IoT Core...");
     disconnect();
@@ -284,41 +211,40 @@ void AWSMQTTProcessor::reconnect()
     connectServer();
 }
 
-void AWSMQTTProcessor::disconnect()
+void SecureMQTTProcessor::disconnect()
 {
     digitalWrite(LED_PIN, LOW);
-    tick.detach();
+    light.endBreathing();
     delay(100);
-    // destroyThread();
     mqttClient.disconnect();
     sslClient.stop();
     delay(300);
 }
 
-bool AWSMQTTProcessor::isConnected()
+bool SecureMQTTProcessor::isConnected()
 {
     return mqttClient.connected();
 }
 
-bool AWSMQTTProcessor::publish(const char *topic, const char *payload)
+bool SecureMQTTProcessor::publish(const char *topic, const char *payload)
 {
     return mqttClient.publish(topic, payload);
 }
 
-bool AWSMQTTProcessor::subscribeToTopic(const char *topic)
+bool SecureMQTTProcessor::subscribeToTopic(const char *topic)
 {
     Serial.print("SUBSCRIBING TO: ");
     Serial.println(topic);
     return mqttClient.subscribe(topic);
 }
 
-void AWSMQTTProcessor::subscribeToTopics()
+void SecureMQTTProcessor::subscribeToTopics()
 {
     CommunicationRegistry::getInstance().iterateCallbacks([this](const char *topic)
                                                           { subscribeToTopic(topic); });
 }
 
-bool AWSMQTTProcessor::subscribe(const char *topic, std::function<void(const char *, const char *)> callback)
+bool SecureMQTTProcessor::subscribe(const char *topic, std::function<void(const char *, const char *)> callback)
 {
     if (!CommunicationRegistry::getInstance().hasCallback(topic))
     {
@@ -328,7 +254,7 @@ bool AWSMQTTProcessor::subscribe(const char *topic, std::function<void(const cha
     return true;
 }
 
-void AWSMQTTProcessor::mqttCallback(char *topic, byte *payload, unsigned int length)
+void SecureMQTTProcessor::mqttCallback(char *topic, byte *payload, unsigned int length)
 {
     String message = "";
     for (unsigned int i = 0; i < length; i++)

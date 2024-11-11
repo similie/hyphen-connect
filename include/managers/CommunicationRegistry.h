@@ -5,8 +5,6 @@
 #include <functional>
 #include <array>
 
-// #define CALLBACK_SIZE 20;
-
 class CommunicationRegistry
 {
 
@@ -30,9 +28,10 @@ private:
     // std::function<void(char *, byte *, unsigned int)> mqttCallbackFunction;
     std::array<std::string, CALLBACK_SIZE> callbacks;
     size_t callbackCount = 0;
-
+    u_int8_t hasWildCard(String);
+    String callbackName(String);
+    bool matchCallback(String, String);
     int callbackIndex(const std::string &topic);
-
     void addCallback(const std::string &topic);
     CommunicationRegistry();
     std::unordered_map<std::string, std::array<std::function<void(const char *, const char *)>, 3>> topicCallbacks;

@@ -1,25 +1,13 @@
 
 #include <Ticker.h>
-#include "Connection.h"
+#include "connections/Connection.h"
 #define SerialMon Serial
 #define SerialAT Serial1
-
-// #define TINY_GSM_MODEM_SIM7600
 #include <TinyGsmClient.h>
 // #define DUMP_AT_COMMANDS 0
-
 #ifdef DUMP_AT_COMMANDS
 #include <StreamDebugger.h>
-// StreamDebugger debugger(SerialAT, SerialMon);
 #endif
-// Define constants
-#define PIN_TX 27
-#define PIN_RX 26
-#define UART_BAUD 115200
-#define PWR_PIN 4
-#define LED_PIN 12
-#define POWER_PIN 25
-#define IND_PIN 36
 
 #ifndef cellular_h
 #define cellular_h
@@ -69,7 +57,7 @@ private:
     Ticker tick;
     SimType activeSim;
     bool connected;
-    const char *apn = "internet";
+    const char *apn = CELLULAR_APN;
     const char *gprsUser = "";
     const char *gprsPass = "";
     uint8_t keepAliveInterval;              // Store the delay interval in seconds
