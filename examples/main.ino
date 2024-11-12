@@ -45,8 +45,8 @@ void setup()
         ;
     hyphen.subscribe("Hy/Post/Config", [](const char *topic, const char *payload)
                      {
-    Log.notice(F("Received message on topic: %s"CR), topic );
-    Log.notice(F("Payload: %s"CR), payload); });
+        Log.notice(F("Received message on topic: %s" CR), topic);
+        Log.notice(F("Payload: %s" CR), payload); });
     // register function
     hyphen.function("sendTickerValuePlusOne", sendTickerValuePlusOne);
     hyphen.variable("tickerValue", &ticker);

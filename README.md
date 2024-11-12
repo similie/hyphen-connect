@@ -18,13 +18,8 @@ HyphenConnect is an open-source library designed to simplify cloud connectivity 
 
 #### Installation
 
-    1.	Clone the Repository:
-
-git clone https://github.com/similie/HyphenConnect.git
-
-    2.	Include the Library in Your Project:
-
-Copy the HyphenConnect folder into your Arduino libraries directory.
+    1.	Clone the Repository: git clone https://github.com/similie/HyphenConnect.git
+    2.	Include the Library in Your Project: Copy the HyphenConnect folder into your Arduino libraries directory.
 
 #### Usage
 
@@ -129,6 +124,54 @@ This example demonstrates how to:
     "id": "<DeviceId>",
     "request": "<CallId>" // this can be anything
 }
+```
+
+```cpp
+// Available Macros
+// The tiny GSM Modem Type. This is used for the TinyGsm library.
+TINY_GSM_MODEM_SIM7600
+// If you are using the a cellular modem, you will need to set this to the APN of your cellular network
+CELLULAR_APN "internet"
+// If you have a SIM pim
+GSM_SIM_PIN ""
+// MQTT Endpoint
+MQTT_IOT_ENDPOINT ""
+// MQTT Port
+MQTT_IOT_PORT 8883
+// Device ID, this should be unique for each device.
+DEVICE_PUBLIC_ID=""
+// We control a light on the device to indicate the connection
+LED_PIN 12
+// What is the Serial Baud
+UART_BAUD 115200
+// What is the Serial TX pin to connect cellular
+CELLULAR_PIN_TX 27
+// What is the Serial RX pin to connect cellular
+CELLULAR_PIN_RX 26
+// What is the pin for controlling the cellular power
+CELLULAR_PWR_PIN 4
+// What is the pin for controlling the cellular power
+CELLULAR_POWER_PIN 25
+// What is the pin for controlling when cellular is on or off
+CELLULAR_IND_PIN=36
+// The default WiFi SSID. In future iteration, we will support connecting to
+// the device via Bluetooth to configure the wifi.
+DEFAULT_WIFI_SSID ""
+// The default WiFi password.
+DEFAULT_WIFI_PASS ""
+// What is the base topic for all messages.
+MQTT_TOPIC_BASE "Hy/"
+// The CA certificate to use when connecting to the MQTT broker.
+MQTT_CA_CERTIFICATE "-----BEGIN CERTIFICATE-----\nMIIDWTCCAkGgAwIBAgIUI7z\n-----END CERTIFICATE-----\n"
+// The device certificate to use when connecting to the MQTT broker.
+MQTT_DEVICE_CERTIFICATE "-----BEGIN CERTIFICATE-----\nMIIDWTCCAkGgAwIBAgIUI7z\n-----END CERTIFICATE-----\n"
+// The device private key to use when connecting to the MQTT broker.
+MQTT_DEVICE_PRIVATE_KEY "-----BEGIN RSA PRIVATE KEY-----\nMIIDWTCCAkGgAwIBAgIUI7z\n-----END  RSA PRIVATE KEY-----\n"
+// Instead of using the above certificates, you can also use a certificate and private key file. In Platform IO these files exist in the `data` folder.
+MQTT_CA_CERTIFICATE_NAME "/root-ca.pem"
+MQTT_DEVICE_CERTIFICATE_NAME "/device-cert.pem"
+MQTT_DEVICE_PRIVATE_KEY_NAME="/private-key.pem"
+
 ```
 
 ### About Similie

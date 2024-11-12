@@ -15,6 +15,7 @@ public:
     virtual bool keepAlive(uint8_t) = 0;
     virtual void maintain() = 0;
     virtual Client *getClient() = 0;
+    // virtual Client &getClient() = 0;
     virtual bool init() = 0;
     // Virtual Destructor
     virtual ~Connection() {}

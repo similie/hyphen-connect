@@ -4,12 +4,22 @@
 #define __aws_mqtt_processor__
 #include <Ticker.h>
 #include <PubSubClient.h>
-#include "FS.h"     // File system for SPIFFS
-#include "SPIFFS.h" // ESP32 SPIFFS
 #include "connections/Connection.h"
-#include "managers/CommunicationRegistry.h"
-#include "processors/Processor.h"
-#include "managers/LightManager.h"
+#include "Managers.h"
+#include "Processor.h"
+
+#ifndef MQTT_CA_CERTIFICATE_NAME
+#define MQTT_CA_CERTIFICATE_NAME "/root-ca.pem" // the root certificate for the mqtt connection
+#endif
+
+#ifndef MQTT_DEVICE_CERTIFICATE_NAME
+#define MQTT_DEVICE_CERTIFICATE_NAME "/device-cert.pem" // the root certificate for the mqtt connection
+#endif
+
+#ifndef MQTT_DEVICE_PRIVATE_KEY_NAME
+#define MQTT_DEVICE_PRIVATE_KEY_NAME "/private-key.pem" // the root certificate for the mqtt connection
+#endif
+
 class SecureMQTTProcessor : public Processor
 {
 public:
@@ -25,6 +35,7 @@ public:
 private:
     void reconnect();
     bool hardDisconnect();
+    FileManager fm;
     LightManager light;
     TaskHandle_t maintainConnectHandle = NULL;
     uint8_t connectCount = 0;

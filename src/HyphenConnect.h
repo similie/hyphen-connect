@@ -7,7 +7,7 @@
 #define __hyphen_connect_h
 
 #ifndef CELLULAR_APN
-#define CELLULAR_APN "hologram" // Your APN
+#define CELLULAR_APN "similie" // Your APN
 #endif
 
 #ifndef GSM_SIM_PIN
@@ -93,6 +93,7 @@ public:
     void variable(const char *, String *);
     void variable(const char *, double *);
     void function(const char *, std::function<int(const char *)>);
+    Client &getClient();
 };
 
 #endif

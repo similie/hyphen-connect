@@ -103,3 +103,8 @@ void HyphenConnect::disconnect()
 {
     return processor.disconnect();
 }
+
+Client &HyphenConnect::getClient()
+{
+    return *connection.getClient();
+}

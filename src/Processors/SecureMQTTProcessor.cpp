@@ -88,20 +88,18 @@ void SecureMQTTProcessor::loop()
 
 bool SecureMQTTProcessor::loadCertificates()
 {
-    if (!SPIFFS.begin(true))
+    if (!fm.start())
     {
         Log.errorln("Failed to initialize SPIFFS");
         return false;
     }
-    // Load Amazon Root CA
-    File ca = SPIFFS.open("/aws-root-ca.pem", "r");
-    if (!ca)
-    {
-        Log.errorln("Failed to open CA file");
-        return false;
-    }
-    String caContent = ca.readString();
-    ca.close();
+    // Load Root CA
+#ifdef MQTT_CA_CERTIFICATE
+    String caContent = String(MQTT_CA_CERTIFICATE);
+#else
+    String caContent = fm.loadFileContents(MQTT_CA_CERTIFICATE_NAME);
+#endif
+
     if (caContent.isEmpty())
     {
         Log.errorln("CA file is empty");
@@ -112,14 +110,12 @@ bool SecureMQTTProcessor::loadCertificates()
     Log.noticeln(caContentC);
     sslClient.setCACert(caContentC);
     // Load Device Certificate
-    File cert = SPIFFS.open("/aws-device-cert.pem", "r");
-    if (!cert)
-    {
-        Log.errorln("Failed to open device certificate file");
-        return false;
-    }
-    String certContent = cert.readString();
-    cert.close();
+
+#ifdef MQTT_DEVICE_CERTIFICATE
+    String caContent = String(MQTT_CA_CERTIFICATE);
+#else
+    String certContent = fm.loadFileContents(MQTT_DEVICE_CERTIFICATE_NAME);
+#endif
     if (certContent.isEmpty())
     {
         Log.errorln("Device certificate file is empty");
@@ -130,14 +126,12 @@ bool SecureMQTTProcessor::loadCertificates()
     Log.noticeln(certContentC);
     sslClient.setCertificate(certContentC);
     // Load Device Private Key
-    File key = SPIFFS.open("/aws-private-key.pem", "r");
-    if (!key)
-    {
-        Log.errorln("Failed to open private key file");
-        return false;
-    }
-    String keyContent = key.readString();
-    key.close();
+#ifdef MQTT_DEVICE_PRIVATE_KEY
+    String caContent = String(MQTT_CA_CERTIFICATE);
+#else
+    String keyContent = fm.loadFileContents(MQTT_DEVICE_PRIVATE_KEY_NAME);
+#endif
+
     if (keyContent.isEmpty())
     {
         Log.errorln("Private key file is empty");
@@ -147,7 +141,7 @@ bool SecureMQTTProcessor::loadCertificates()
     Log.noticeln("Loaded private key:");
     Log.noticeln(keyContentC);
     sslClient.setPrivateKey(keyContentC);
-    SPIFFS.end();
+    fm.end();
     return true;
 }
 bool SecureMQTTProcessor::hardDisconnect()
