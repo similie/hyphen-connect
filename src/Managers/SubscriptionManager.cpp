@@ -11,7 +11,8 @@ bool SubscriptionManager::init()
     {
         return false;
     }
-
+    delay(10000);
+    Log.notice(F("Subscription Manager initialized %s" CR), functionTopic.c_str());
     processor.subscribe(functionTopic.c_str(), [this](const char *topic, const char *payload)
                         { functionalCallback(topic, payload); });
 
@@ -48,7 +49,7 @@ void SubscriptionManager::function(const char *topic, std::function<int(const ch
 
     if (functionCount >= 20)
     {
-        Serial.println("Function limit reached");
+        Log.warningln("Function limit reached");
         return;
     }
     functionTopics[functionCount] = topic;
@@ -84,7 +85,7 @@ void SubscriptionManager::variableCallback(const char *topic, const char *payloa
     auto varIt = variableRegistry.find(key.c_str());
     if (varIt == variableRegistry.end())
     {
-        Serial.println("Variable or function not found.");
+        Log.warningln("Variable or function not found.");
         return;
     }
 
@@ -116,7 +117,7 @@ void SubscriptionManager::variableCallback(const char *topic, const char *payloa
     String sendTopic = variableResultsTopic + "/" + key + "/" + callId;
     if (!publishTopic(sendTopic, resultStr))
     {
-        Serial.println("Failed to publish variable result");
+        Log.errorln("Failed to publish variable result");
     }
 }
 
@@ -128,7 +129,7 @@ void SubscriptionManager::functionalCallback(const char *topic, const char *payl
     auto it = functionCallbacks.find(key.c_str());
     if (it == functionCallbacks.end())
     {
-        Serial.println("Function not found.");
+        Log.warningln("Function not found.");
         return;
     }
     JsonDocument doc;
@@ -143,7 +144,7 @@ void SubscriptionManager::functionalCallback(const char *topic, const char *payl
     String sendTopic = functionResultsTopic + "/" + key + "/" + callId;
     if (!publishTopic(sendTopic, resultStr))
     {
-        Serial.println("Failed to publish result");
+        Log.errorln("Failed to publish result");
     }
 }
 
@@ -178,11 +179,6 @@ void SubscriptionManager::variable(const char *name, double *var)
     variableRegistry[name] = entry;
     variableCount++;
 }
-
-// void SubscriptionManager::variable()
-// {
-//     Serial.println("Variable");
-// }
 
 bool SubscriptionManager::publishTopic(String topic, String payload)
 {

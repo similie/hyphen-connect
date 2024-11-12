@@ -14,7 +14,7 @@ WiFiConnection::WiFiConnection(const char *ssid, const char *password) : WiFiCon
 bool WiFiConnection::addNetwork(const char *ssid, const char *password)
 {
 
-    Serial.printf("Adding network SSID: %s PASSWORD: %s\n", ssid, password);
+    Log.notice(F("Adding network SSID: %s" CR), ssid);
     // Check if the network is already in the list
     for (int i = 0; i < networkCount; i++)
     {
@@ -22,7 +22,7 @@ bool WiFiConnection::addNetwork(const char *ssid, const char *password)
         { // Check if SSID already exists
             strncpy(networks[i].password, password, sizeof(networks[i].password) - 1);
             saveNetworks(); // Save changes to preferences
-            Serial.printf("Updated network %s\n", ssid);
+            Log.notice(F("Updated network %s" CR), ssid);
             return true;
         }
     }
@@ -34,12 +34,12 @@ bool WiFiConnection::addNetwork(const char *ssid, const char *password)
         strncpy(networks[networkCount].password, password, sizeof(networks[networkCount].password) - 1);
         networkCount++;
         saveNetworks(); // Save changes to preferences
-        Serial.printf("Added new network %s\n", ssid);
+        Log.notice(F("Added new network %s" CR), ssid);
         return true;
     }
     else
     {
-        Serial.println("Network limit reached (10). Cannot add more networks.");
+        Log.warningln("Network limit reached (10). Cannot add more networks.");
         return false;
     }
 }
@@ -48,7 +48,7 @@ bool WiFiConnection::addNetwork(const char *ssid, const char *password)
 void WiFiConnection::loadNetworks()
 {
     networkCount = preferences.getInt("networkCount", 0);
-    Serial.printf("Loaded %d networks\n", networkCount);
+    Log.notice(F("Loaded %d networks" CR), networkCount);
     for (int i = 0; i < networkCount; i++)
     {
         String ssidKey = "ssid" + String(i);
@@ -79,7 +79,7 @@ void WiFiConnection::saveNetworks()
 // Initialize WiFi in station mode
 bool WiFiConnection::init()
 {
-    Serial.println("Initializing WiFi...");
+    Log.noticeln("Initializing WiFi...");
     if (!preferencesInitialized)
     {
         preferencesInitialized = true;
@@ -97,15 +97,15 @@ bool WiFiConnection::init()
 // Connect to the first available network in the list
 bool WiFiConnection::connect()
 {
-    Serial.println("Connecting to WiFi...");
+    Log.noticeln("Connecting to WiFi...");
     if (isConnected())
     {
         return true;
     }
-    Serial.printf("We have these networks %d\n", networkCount);
+    Log.notice(F("We have these networks %d" CR), networkCount);
     for (int i = 0; i < networkCount; i++)
     {
-        Serial.printf("Connecting to %s\n", networks[i].ssid);
+        Log.notice(F("Connecting to %s" CR), networks[i].ssid);
 
         WiFi.begin(networks[i].ssid, networks[i].password);
         unsigned long startAttemptTime = millis();
@@ -118,12 +118,12 @@ bool WiFiConnection::connect()
         if (WiFi.status() == WL_CONNECTED)
         {
             connected = true;
-            Serial.printf("Connected to %s\n", networks[i].ssid);
+            Log.notice(F("Connected to %s" CR), networks[i].ssid);
             return true;
         }
         else
         {
-            Serial.printf("Failed to connect to %s\n", networks[i].ssid);
+            Log.notice(F("Failed to connect to %s" CR), networks[i].ssid);
         }
     }
     delay(10000);
@@ -179,10 +179,10 @@ bool WiFiConnection::keepAlive(uint8_t maxRetries)
 // Maintain the connection (reconnect if disconnected)
 void WiFiConnection::maintain()
 {
-    // if (!isConnected())
-    // {
-    //     connect();
-    // }
+    if (!isConnected())
+    {
+        connect();
+    }
 }
 
 // Return a pointer to the WiFi client

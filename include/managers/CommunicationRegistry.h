@@ -1,6 +1,7 @@
 #ifndef COMMUNICATION_REGISTRY_H
 #define COMMUNICATION_REGISTRY_H
 #include <Arduino.h>
+#include <ArduinoLog.h>
 #include <unordered_map>
 #include <functional>
 #include <array>

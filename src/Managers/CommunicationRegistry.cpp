@@ -119,7 +119,7 @@ bool CommunicationRegistry::registerCallback(const std::string &topic, std::func
         }
     }
 
-    Serial.printf("No space to register more callbacks for topic: %s\n", topic.c_str());
+    Log.notice(F("No space to register more callbacks for topic: %s" CR), topic.c_str());
     return false; // No empty slots available
 }
 
@@ -142,6 +142,6 @@ void CommunicationRegistry::triggerCallbacks(const std::string &topic, const cha
     }
     else
     {
-        Serial.printf("No callbacks registered for topic: %s\n", topic.c_str());
+        Log.notice(F("No callbacks registered for topic: %s" CR), topic.c_str());
     }
 }

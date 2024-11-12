@@ -10,7 +10,7 @@ bool SecureMQTTProcessor::init()
     while (!connection.init())
         ;
     lastInActivity = millis();
-    Serial.println("Cellular initialized");
+    Log.noticeln("Network Connection Initialized");
     return connectServer();
 }
 
@@ -18,13 +18,13 @@ bool SecureMQTTProcessor::connectServer()
 {
     if (!connection.isConnected())
     {
-        Serial.println("Network connection is not established.");
+        Log.errorln("Network connection is not established.");
         return false;
     }
     Client *netClient = connection.getClient();
     if (netClient == nullptr)
     {
-        Serial.println("Failed to get network client.");
+        Log.errorln("Failed to get network client.");
         return false;
     }
     // slight delay to allow the modem to get ready for a new connection
@@ -32,7 +32,7 @@ bool SecureMQTTProcessor::connectServer()
 
     if (!loadCertificates())
     {
-        Serial.println("Failed to load certificates.");
+        Log.errorln("Failed to load certificates.");
         return false;
     }
 
@@ -43,7 +43,7 @@ bool SecureMQTTProcessor::connectServer()
     mqttClient.setServer(MQTT_IOT_ENDPOINT, MQTT_IOT_PORT);
     mqttClient.setCallback([this](char *topic, byte *payload, unsigned int length)
                            { mqttCallback(topic, payload, length); });
-    Serial.println("MQTT initialized");
+    Log.noticeln("MQTT initialized");
     return connect();
 }
 
@@ -80,7 +80,7 @@ void SecureMQTTProcessor::loop()
     }
     else
     {
-        Serial.println("Reconnecting to MQTT...");
+        Log.noticeln("Reconnecting to MQTT...");
         reconnect();
     }
     lastInActivity = millis();
@@ -90,66 +90,69 @@ bool SecureMQTTProcessor::loadCertificates()
 {
     if (!SPIFFS.begin(true))
     {
-        Serial.println("Failed to initialize SPIFFS");
+        Log.errorln("Failed to initialize SPIFFS");
         return false;
     }
     // Load Amazon Root CA
     File ca = SPIFFS.open("/aws-root-ca.pem", "r");
     if (!ca)
     {
-        Serial.println("Failed to open CA file");
+        Log.errorln("Failed to open CA file");
         return false;
     }
     String caContent = ca.readString();
     ca.close();
     if (caContent.isEmpty())
     {
-        Serial.println("CA file is empty");
+        Log.errorln("CA file is empty");
         return false;
     }
-    Serial.println("Loaded CA certificate:");
-    Serial.println(caContent);
-    sslClient.setCACert(caContent.c_str());
+    const char *caContentC = caContent.c_str();
+    Log.noticeln("Loaded CA certificate:");
+    Log.noticeln(caContentC);
+    sslClient.setCACert(caContentC);
     // Load Device Certificate
     File cert = SPIFFS.open("/aws-device-cert.pem", "r");
     if (!cert)
     {
-        Serial.println("Failed to open device certificate file");
+        Log.errorln("Failed to open device certificate file");
         return false;
     }
     String certContent = cert.readString();
     cert.close();
     if (certContent.isEmpty())
     {
-        Serial.println("Device certificate file is empty");
+        Log.errorln("Device certificate file is empty");
         return false;
     }
-    Serial.println("Loaded device certificate:");
-    Serial.println(certContent);
-    sslClient.setCertificate(certContent.c_str());
+    const char *certContentC = certContent.c_str();
+    Log.noticeln("Loaded device certificate:");
+    Log.noticeln(certContentC);
+    sslClient.setCertificate(certContentC);
     // Load Device Private Key
     File key = SPIFFS.open("/aws-private-key.pem", "r");
     if (!key)
     {
-        Serial.println("Failed to open private key file");
+        Log.errorln("Failed to open private key file");
         return false;
     }
     String keyContent = key.readString();
     key.close();
     if (keyContent.isEmpty())
     {
-        Serial.println("Private key file is empty");
+        Log.errorln("Private key file is empty");
         return false;
     }
-    Serial.println("Loaded private key:");
-    Serial.println(keyContent);
-    sslClient.setPrivateKey(keyContent.c_str());
+    const char *keyContentC = keyContent.c_str();
+    Log.noticeln("Loaded private key:");
+    Log.noticeln(keyContentC);
+    sslClient.setPrivateKey(keyContentC);
     SPIFFS.end();
     return true;
 }
 bool SecureMQTTProcessor::hardDisconnect()
 {
-    Serial.println("Restarting connection with a hard disconnect...");
+    Log.noticeln("Restarting connection with a hard disconnect...");
     connectCount = 0;
     disconnect();
     delay(100);
@@ -158,7 +161,7 @@ bool SecureMQTTProcessor::hardDisconnect()
     delay(1000);
     if (!connection.on())
     {
-        Serial.println("Failed to turn on network.");
+        Log.errorln("Failed to turn on network.");
         return false;
     }
     return init();
@@ -173,10 +176,10 @@ bool SecureMQTTProcessor::connect()
     if (!connection.isConnected())
     {
         connectCount = 0;
-        Serial.println("Waiting for cellular connection...");
+        Log.noticeln("Waiting for cellular connection...");
         if (!connection.connect())
         {
-            Serial.println("Failed to connect network.");
+            Log.errorln("Failed to connect network.");
             return false;
         }
     }
@@ -186,18 +189,17 @@ bool SecureMQTTProcessor::connect()
 
 bool SecureMQTTProcessor::setupAWSConnection()
 {
-    Serial.print("Setting up AWS connection... ");
-    Serial.println(AWS_CLIENT_ID);
+    Log.notice("Setting up AWS connection... ");
+    Log.noticeln(AWS_CLIENT_ID);
 
     if (!mqttClient.connect(AWS_CLIENT_ID))
     {
-        Serial.println("Failed to connect to AWS IoT Core.");
+        Log.errorln("Failed to connect to AWS IoT Core.");
         return false;
     }
 
     subscribeToTopics();
-    Serial.println("Connected to AWS IoT Core.");
-
+    Log.noticeln("Connected to AWS IoT Core.");
     light.startBreathing();
     connectCount = 0;
     return true;
@@ -205,7 +207,7 @@ bool SecureMQTTProcessor::setupAWSConnection()
 
 void SecureMQTTProcessor::reconnect()
 {
-    Serial.println("Reconnecting to AWS IoT Core...");
+    Log.noticeln("Reconnecting to AWS IoT Core...");
     disconnect();
     delay(500);
     connectServer();
@@ -233,8 +235,7 @@ bool SecureMQTTProcessor::publish(const char *topic, const char *payload)
 
 bool SecureMQTTProcessor::subscribeToTopic(const char *topic)
 {
-    Serial.print("SUBSCRIBING TO: ");
-    Serial.println(topic);
+    Log.notice(F("SUBSCRIBING TO: %s"), topic);
     return mqttClient.subscribe(topic);
 }
 

@@ -1,6 +1,6 @@
 # HyphenConnect
 
-HyphenConnect is an open-source library designed to simplify cloud connectivity for ESP32-based devices. It provides seamless integration with Wi-Fi and cellular networks, with plans to support LoRaWAN in the future.
+HyphenConnect is an open-source library designed to simplify cloud connectivity for ESP32-based devices. This powerful tool provides seamless integration with Wi-Fi and cellular networks, enabling developers to create robust and reliable IoT applications. With its extensible architecture and support for secure function calling and variable sharing, HyphenConnect empowers users to build innovative solutions that connect resources across various hardware platforms.
 
 ## Features
 
@@ -51,19 +51,19 @@ String sendMessage() {
 void sendPayload() {
     payloadReady = false;
     if (!hyphen.isConnected()) {
-        Serial.println("Not connected to network");
+        Log.errorln("Not connected to network");
         return;
     }
 
     if (!hyphen.publishTopic("Hy/Post/Message", sendMessage())) {
-        Serial.println("Failed to publish message");
+        Log.errorln("Failed to publish message");
         return;
     }
-    Serial.println("Published message");
+    Log.noticeln("Published message");
 }
 
 int sendTickerValuePlusOne(const char *params) {
-    Serial.printf("Function called with params: %s\n", params);
+    Log.notice(F("Function called with params: %s\n"), params);
     return 1 + tickerValue;
 }
 
@@ -73,8 +73,8 @@ void setup() {
         delay(1000);
     }
     hyphen.subscribe("Hy/Post/Config", [](const char *topic, const char *payload) {
-        Serial.printf("Received message on topic: %s\n", topic);
-        Serial.printf("Payload: %s\n", payload);
+        Log.notice(F("Received message on topic: %s\n"), topic);
+        Log.notice(F("Payload: %s\n"), payload);
     });
     hyphen.function("sendTickerValuePlusOne", sendTickerValuePlusOne);
     hyphen.variable("tickerValue", &tickerValue);
@@ -133,7 +133,7 @@ This example demonstrates how to:
 
 ### About Similie
 
-Similie is a small technology company based out of Timor-Leste, dedicated to developing innovative solutions that support international development initiatives. Our mission is to harness the power of technology to drive positive change and improve lives around the world. With a focus on sustainability, community engagement, and social impact, we strive to create products and services that make a real difference in people's lives.
+Similie is a technology company based out of Timor-Leste, dedicated to developing innovative solutions that support international development initiatives and climate-change adaption. Our mission is to harness the power of technology to drive positive change and improve lives around the world. With a focus on sustainability, community engagement, and social impact, we strive to create products and services that make a real difference in people's lives.
 
 ### Contributions
 

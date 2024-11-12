@@ -63,14 +63,14 @@ bool ConnectionManager::init()
     {
         if (!conn->init())
         {
-            Serial.println(
+            Log.errorln(
                 "Failed to initialize connection. Powering off and trying next connection...");
             conn->off();
             delay(5000);
         }
         else
         {
-            Serial.println("Successfully Established Connection");
+            Log.noticeln("Successfully Established Connection");
             currentConnection = conn.get();
             return true;
         }

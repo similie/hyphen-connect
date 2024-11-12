@@ -47,15 +47,14 @@ GPSData Cellular::getGPSData()
         delay(1000); // Wait a second before retrying
     }
 
-    Serial.print("Raw GPS data: ");
-    Serial.printf("RAW GPS %s\n", modem.getGPSraw().c_str());
+    Log.notice(F("RAW GPS %s" CR), modem.getGPSraw().c_str());
 
     modem.sendAT("+CGNSINF"); // Query GPS information
 
     if (modem.waitResponse(10000L))
     {
         String gpsData = modem.stream.readStringUntil('\n');
-        Serial.printf("GPS data not available %s\n", gpsData.c_str());
+        Log.error(F("GPS data not available %s" CR), gpsData.c_str());
     }
     // tick.detach();
     digitalWrite(LED_PIN, LOW);
@@ -85,25 +84,20 @@ bool Cellular::init()
 {
     if (!on())
     {
-        SerialMon.println("Failed network connection.");
+        Log.errorln("Failed network connection.");
         return false;
     }
 
     if (connect())
     {
-        SerialMon.println("Connected to network.");
+        Log.noticeln("Connected to network.");
         return true; // keepAlive(30);
     }
-    SerialMon.println("Failed to connect.");
+    Log.errorln("Failed to connect.");
 
     return false;
 }
 
-// void Cellular::maintain()
-// {
-//     Serial.println("i MA MAINTAINING");
-//     modem.maintain();
-// }
 // FreeRTOS task function for maintain
 void Cellular::maintainTask(void *param)
 {
@@ -131,14 +125,14 @@ void Cellular::terminateThreads()
 {
     if (keepAliveHandle != NULL)
     {
-        Serial.println("Deleting keepAlive task...");
+        Log.noticeln("Deleting keepAlive task...");
         vTaskDelete(keepAliveHandle);
         keepAliveHandle = NULL;
     }
 
     if (maintainHandle != NULL)
     {
-        Serial.println("Deleting maintain task...");
+        Log.noticeln("Deleting maintain task...");
         vTaskDelete(maintainHandle);
         maintainHandle = NULL;
     }
@@ -160,7 +154,7 @@ void Cellular::initModem()
 {
     if (!modem.init())
     {
-        SerialMon.println("Failed to initialize modem.");
+        Log.errorln("Failed to initialize modem.");
         return;
     }
 
@@ -179,14 +173,14 @@ void Cellular::maintain()
         return;
     }
     bool connection = isConnected();
-    Serial.print("Maintain ");
-    Serial.println(connected);
+    Log.noticeln("Maintaining connection ");
+
     if (connection && connected)
     {
         return modem.maintain();
     }
     connected = false;
-    Serial.println("Reconnecting...");
+    Log.noticeln("Reconnecting...");
     modem.init();
     connect();
 }
@@ -197,14 +191,14 @@ bool Cellular::connect()
     terminateThreads();
     if (!modem.waitForNetwork())
     {
-        SerialMon.println("Network connection failed.");
+        Log.errorln("Network connection failed.");
         return false;
     }
-    SerialMon.println("Network connected");
+    Log.noticeln("Network connected");
     connected = modem.gprsConnect(apn, gprsUser, gprsPass);
     if (connected)
     {
-        SerialMon.println("GPRS connected");
+        Log.noticeln("GPRS connected");
         // modem.sendAT("+CDNSCFG=\"8.8.8.8\"");
     }
     return connected;
@@ -261,7 +255,7 @@ void Cellular::enableGPS()
     modem.sendAT("+CGNSPWR=1");
     if (modem.waitResponse(20000L) != 1)
     {
-        SerialMon.println("Failed to enable GNSS power");
+        Log.errorln("Failed to enable GNSS power");
     }
     modem.enableGPS();
 }
@@ -295,7 +289,7 @@ void Cellular::keepAliveTask(void *param)
         if (cellular->isConnected())
         {
             cellular->modem.maintain();
-            SerialMon.println("Keep-alive task: Connection maintained.");
+            Log.noticeln("Keep-alive task: Connection maintained.");
         }
         vTaskDelay(delayTicks); // Delay according to the specified interval
     }

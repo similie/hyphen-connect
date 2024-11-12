@@ -8,10 +8,10 @@ bool BluetoothGateway::init()
 {
     if (!btSerial.begin(deviceName))
     {
-        Serial.println("Failed to initialize Bluetooth");
+        Log.errorln("Failed to initialize Bluetooth");
         return false;
     }
-    Serial.println("Bluetooth initialized successfully");
+    Log.noticeln("Bluetooth initialized successfully");
     return true;
 }
 
@@ -21,11 +21,11 @@ bool BluetoothGateway::connect()
     if (btSerial.hasClient())
     {
         connected = true;
-        Serial.println("Bluetooth client connected");
+        Log.noticeln("Bluetooth client connected");
     }
     else
     {
-        Serial.println("Waiting for Bluetooth client...");
+        Log.noticeln("Waiting for Bluetooth client...");
     }
     return connected;
 }
@@ -35,7 +35,7 @@ void BluetoothGateway::disconnect()
 {
     btSerial.end();
     connected = false;
-    Serial.println("Bluetooth client disconnected");
+    Log.noticeln("Bluetooth client disconnected");
 }
 
 // Check if Bluetooth client is connected
@@ -91,11 +91,11 @@ void BluetoothGateway::sendConfigData(const String &configData)
     if (isConnected())
     {
         btSerial.println(configData);
-        Serial.println("Sent config data over Bluetooth");
+        Log.noticeln("Sent config data over Bluetooth");
     }
     else
     {
-        Serial.println("No Bluetooth client connected");
+        Log.noticeln("No Bluetooth client connected");
     }
 }
 

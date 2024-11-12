@@ -1,15 +1,11 @@
 #ifndef __subscription_manager__
 #define __subscription_manager__
+#include <ArduinoLog.h>
 #include "processors/Processor.h"
 #include <ArduinoJson.h>
 #include <unordered_map>
 #include <array>
 #include "Ticker.h"
-
-static const String MQTT_TOPIC_POST_BASE_PREFIX = String(MQTT_TOPIC_BASE) + "Post/";
-static const String MQTT_TOPIC_GET_BASE_PREFIX = String(MQTT_TOPIC_BASE) + "Get/";
-static const String MQTT_TOPIC_PUT_BASE_PREFIX = String(MQTT_TOPIC_BASE) + "Put/";
-static const String MQTT_TOPIC_DEL_BASE_PREFIX = String(MQTT_TOPIC_BASE) + "Del/";
 
 // Define custom hash and equal functions for Arduino String
 struct StringHash
@@ -72,7 +68,6 @@ public:
     void variable(const char *name, long *var);
     void variable(const char *name, String *var);
     void variable(const char *name, double *var);
-
     // Hy/Post/Function/<DeviceID>/<FunctionID>/<CallID>
     // Hy/Post/Function/Result/<DeviceID>/<FunctionID>/<CallID>/
     // Hy/Post/Function/Register/<DeviceID>
@@ -98,13 +93,13 @@ private:
     static void registrationCallback(SubscriptionManager *instance);
     Processor &processor;
 
-    String functionTopic = MQTT_TOPIC_POST_BASE_PREFIX + "Function/" + deviceId + "/#";
-    String functionResultsTopic = MQTT_TOPIC_POST_BASE_PREFIX + "Function/Result/" + deviceId;
-    String functionRegistrationTopic = MQTT_TOPIC_POST_BASE_PREFIX + "Function/Register/" + deviceId;
+    String functionTopic = String(MQTT_TOPIC_BASE) + "Post/Function/" + deviceId + "/#";
+    String functionResultsTopic = String(MQTT_TOPIC_BASE) + "Post/Function/Result/" + deviceId;
+    String functionRegistrationTopic = String(MQTT_TOPIC_BASE) + "Post/Function/Register/" + deviceId;
 
-    String variableTopic = MQTT_TOPIC_POST_BASE_PREFIX + "Variable/" + deviceId + "/#";
-    String variableResultsTopic = MQTT_TOPIC_POST_BASE_PREFIX + "Variable/Result/" + deviceId;
-    String variableRegistrationTopic = MQTT_TOPIC_POST_BASE_PREFIX + "Variable/Register/" + deviceId;
+    String variableTopic = String(MQTT_TOPIC_BASE) + "Post/Variable/" + deviceId + "/#";
+    String variableResultsTopic = String(MQTT_TOPIC_BASE) + "Post/Variable/Result/" + deviceId;
+    String variableRegistrationTopic = String(MQTT_TOPIC_BASE) + "Post/Variable/Register/" + deviceId;
 };
 
 #endif

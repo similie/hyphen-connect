@@ -20,33 +20,33 @@ void sendPayload()
     payloadReady = false;
     if (!hyphen.isConnected())
     {
-        Serial.println("Not connected to cellular network");
+        Log.noticeln("Not connected to a network");
         return;
     }
 
     if (!hyphen.publishTopic("Hy/Post/Message", sendMessage()))
     {
-        Serial.println("Failed to publish message");
+        Log.noticeln("Failed to publish message");
         return;
     }
-    Serial.println("Published message");
+    Log.noticeln("Published message");
 }
 
 int sendTickerValuePlusOne(const char *params)
 {
-    Serial.printf("Calling all functions %s\n", params);
+    Log.notice(F("Calling all functions %s" CR), params);
     return 1 + ticker;
 }
 
 void setup()
 {
 
-    while (!hyphen.setup())
+    while (!hyphen.setup(LOG_LEVEL_VERBOSE))
         ;
     hyphen.subscribe("Hy/Post/Config", [](const char *topic, const char *payload)
                      {
-    Serial.printf("Received message on topic: %s\n", topic);
-    Serial.printf("Payload: %s\n", payload); });
+    Log.notice(F("Received message on topic: %s"CR), topic );
+    Log.notice(F("Payload: %s"CR), payload); });
     // register function
     hyphen.function("sendTickerValuePlusOne", sendTickerValuePlusOne);
     hyphen.variable("tickerValue", &ticker);

@@ -8,8 +8,9 @@ HyphenConnect::HyphenConnect() : HyphenConnect(ConnectionType::WIFI_PREFERRED)
 {
 }
 
-bool HyphenConnect::setup()
+bool HyphenConnect::setup(int loglevel)
 {
+
     /**
      * @brief run these functions once at startup
      *
@@ -17,10 +18,16 @@ bool HyphenConnect::setup()
     if (!initialSetup)
     {
         Serial.begin(UART_BAUD);
+        Log.begin(loglevel, &Serial);
         initialSetup = true;
     }
 
     return manager.init();
+}
+
+bool HyphenConnect::setup()
+{
+    return setup(LOG_LEVEL_SILENT);
 }
 
 void HyphenConnect::loop()

@@ -82,6 +82,7 @@ public:
     HyphenConnect();
     HyphenConnect(ConnectionType);
     bool setup();
+    bool setup(int);
     void loop();
     bool subscribe(const char *, std::function<void(const char *, const char *)>);
     bool publishTopic(String, String);

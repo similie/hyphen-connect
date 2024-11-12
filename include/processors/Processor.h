@@ -2,6 +2,7 @@
 #define _processor_h
 #include "functional"
 #include <Arduino.h>
+#include <ArduinoLog.h>
 class Processor
 {
 public:
