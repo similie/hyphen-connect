@@ -1,7 +1,8 @@
-#ifndef _processor_h
-#define _processor_h
-#include "functional"
+#ifndef processor_h
+#define processor_h
+
 #include <Arduino.h>
+#include "functional"
 #include <ArduinoLog.h>
 class Processor
 {
