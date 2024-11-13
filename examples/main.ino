@@ -47,8 +47,9 @@ void setup()
                      {
         Log.notice(F("Received message on topic: %s" CR), topic);
         Log.notice(F("Payload: %s" CR), payload); });
-    // register function
+    // here we register a function
     hyphen.function("sendTickerValuePlusOne", sendTickerValuePlusOne);
+    // and we register our tickerValue as a variable
     hyphen.variable("tickerValue", &ticker);
     // our job interval
     tick.attach(10, []()
@@ -58,9 +59,10 @@ void setup()
 void loop()
 {
     hyphen.loop();
-    if (payloadReady)
+    if (!payloadReady)
     {
-        sendPayload();
-        ticker++;
+        return;
     }
+    sendPayload();
+    ticker++;
 }
