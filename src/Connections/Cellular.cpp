@@ -74,10 +74,12 @@ void Cellular::setupPower()
     digitalWrite(CELLULAR_PWR_PIN, HIGH);
     delay(500);
     digitalWrite(CELLULAR_PWR_PIN, LOW);
-
+    /**
+     * @brief You can assign an interrupt
+     * on this pin indicate when the cellular module
+     * I ready to communicate
+     */
     pinMode(CELLULAR_IND_PIN, INPUT);
-    // pinMode(LED_PIN, OUTPUT);
-    // digitalWrite(LED_PIN, LOW);
 }
 
 bool Cellular::init()
@@ -113,7 +115,6 @@ void Cellular::maintainTask(void *param)
 // Turn on the modem
 bool Cellular::on()
 {
-
     setupPower();
     delay(10000);
     SerialAT.begin(UART_BAUD, SERIAL_8N1, CELLULAR_PIN_RX, CELLULAR_PIN_TX);
