@@ -1,4 +1,3 @@
-#include <Arduino.h>
 #include "Managers.h"
 #include "Connections.h"
 #include "Processors.h"
@@ -46,8 +45,8 @@
 #define CELLULAR_PIN_RX 26
 #endif
 
-#ifndef CELLULAR_PWR_PIN
-#define CELLULAR_PWR_PIN 4
+#ifndef CELLULAR_POWER_PIN_AUX
+#define CELLULAR_POWER_PIN_AUX 4
 #endif
 
 #ifndef CELLULAR_POWER_PIN
@@ -77,6 +76,7 @@ private:
     SecureMQTTProcessor processor;
     SubscriptionManager manager;
     bool initialSetup = false;
+    LoggingManager logger;
 
 public:
     HyphenConnect();

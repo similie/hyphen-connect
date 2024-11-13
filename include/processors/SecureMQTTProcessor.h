@@ -49,7 +49,7 @@ private:
     PubSubClient mqttClient;
     SSLClientESP32 sslClient;
     void mqttCallback(char *topic, byte *payload, unsigned int length);
-    bool setupAWSConnection();
+    bool setupSecureConnection();
     bool loadCertificates();
     bool connectServer();
     int hasSubscription();

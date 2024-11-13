@@ -69,11 +69,11 @@ void Cellular::setupPower()
     delay(10);
     pinMode(CELLULAR_POWER_PIN, OUTPUT);
     digitalWrite(CELLULAR_POWER_PIN, HIGH);
-
-    pinMode(CELLULAR_PWR_PIN, OUTPUT);
-    digitalWrite(CELLULAR_PWR_PIN, HIGH);
+    // this is the action for the SIM7600, other sims may have different power requirements
+    pinMode(CELLULAR_POWER_PIN_AUX, OUTPUT);
+    digitalWrite(CELLULAR_POWER_PIN_AUX, HIGH);
     delay(500);
-    digitalWrite(CELLULAR_PWR_PIN, LOW);
+    digitalWrite(CELLULAR_POWER_PIN_AUX, LOW);
     /**
      * @brief You can assign an interrupt
      * on this pin indicate when the cellular module

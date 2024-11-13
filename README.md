@@ -160,8 +160,8 @@ UART_BAUD 115200
 CELLULAR_PIN_TX 27
 // What is the Serial RX pin to connect cellular
 CELLULAR_PIN_RX 26
-// What is the pin for controlling the cellular power
-CELLULAR_PWR_PIN 4
+// Auxillary Power Pin. This Pin is the PWR-KEY of the SIM7600
+CELLULAR_POWER_PIN_AUX 4
 // What is the pin for controlling the cellular power
 CELLULAR_POWER_PIN 25
 // What is the pin for controlling when cellular is on or off
@@ -191,7 +191,7 @@ Similie is a technology company based out of Timor-Leste, dedicated to developin
 
 ### Contributions
 
-Contributions are welcome! We are actively working on adding LoRaWAN support. If you’re interested in contributing, please fork the repository and submit a pull request.
+Contributions are welcome! This library is still in the early stages of development. Please be aware that in production, there might be stability issues. We are actively working on adding LoRaWAN support. If you’re interested in contributing, please fork the repository and submit a pull request.
 
 ### License
 
