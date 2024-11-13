@@ -27,66 +27,73 @@ HyphenConnect is an open-source library designed to simplify cloud connectivity 
 Here’s an example of how to use HyphenConnect in your project:
 
 ```cpp
+
 #include "HyphenConnect.h"
-#include <Ticker.h>
 Ticker tick;
 HyphenConnect hyphen(ConnectionType::WIFI_PREFERRED);
 bool payloadReady = false;
-long tickerValue = 0;
+long ticker = 0;
 
-String sendMessage() {
-	StaticJsonDocument<200> doc;
-	doc["message"] = "Hello from HyphenConnect";
-	doc["id"] = DEVICE_PUBLIC_ID;
-	String send;
-	serializeJson(doc, send);
-	return send;
+String sendMessage()
+{
+    JsonDocument doc;
+    doc["message"] = "Hello from HyphenConnect";
+    doc["id"] = DEVICE_PUBLIC_ID;
+    String send;
+    serializeJson(doc, send);
+    return send;
 }
 
-void sendPayload() {
-	payloadReady = false;
-	if (!hyphen.isConnected()) {
-		Log.errorln("Not connected to network");
-		return;
-	}
-	if (!hyphen.publishTopic("Hy/Post/Message", sendMessage())) {
-		Log.errorln("Failed to publish message");
-		return;
-	}
-	Log.noticeln("Published message");
+void sendPayload()
+{
+    payloadReady = false;
+    if (!hyphen.isConnected())
+    {
+        Log.noticeln("Not connected to a network");
+        return;
+    }
+
+    if (!hyphen.publishTopic("Hy/Post/Message", sendMessage()))
+    {
+        Log.noticeln("Failed to publish message");
+        return;
+    }
+    Log.noticeln("Published message");
 }
 
-int sendTickerValuePlusOne(const char *params) {
-	Log.notice(F("Function called with params: %s\n"), params);
-	return 1 + tickerValue;
+int sendTickerValuePlusOne(const char *params)
+{
+    Log.notice(F("Calling all functions %s" CR), params);
+    return 1 + ticker;
 }
 
-void setup() {
-	while (!hyphen.setup()) {
-	 delay(1000);
- .  }
+void setup()
+{
 
-	hyphen.subscribe("Hy/Post/Config", [](const char *topic, const char *payload) {
-		Log.notice(F("Received message on topic: %s\n"), topic);
-		Log.notice(F("Payload: %s\n"), payload);
-	});
-	// here we register a function
-	hyphen.function("sendTickerValuePlusOne", sendTickerValuePlusOne);
-	// and we register our tickerValue as a variable
-	hyphen.variable("tickerValue", &tickerValue);
-	// loop actions
-	tick.attach(10, []() {
-		payloadReady = true;
-	});
+    while (!hyphen.setup(LOG_LEVEL_VERBOSE))
+        ;
+    hyphen.subscribe("Hy/Post/Config", [](const char *topic, const char *payload)
+                     {
+        Log.notice(F("Received message on topic: %s" CR), topic);
+        Log.notice(F("Payload: %s" CR), payload); });
+    // here we register a function
+    hyphen.function("sendTickerValuePlusOne", sendTickerValuePlusOne);
+    // and we register our tickerValue as a variable
+    hyphen.variable("tickerValue", &ticker);
+    // our job interval
+    tick.attach(10, []()
+                { payloadReady = true; });
 }
 
-void loop() {
-	hyphen.loop();
-	if (!payloadReady) {
-		return;
-	}
-	sendPayload();
-	tickerValue++;
+void loop()
+{
+    hyphen.loop();
+    if (!payloadReady)
+    {
+        return;
+    }
+    sendPayload();
+    ticker++;
 }
 ```
 
