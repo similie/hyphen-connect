@@ -52,7 +52,6 @@ private:
     StreamDebugger debugger;
 #endif
     TinyGsmClient gsmClient;
-    SSLClientESP32 sslClient;
     TinyGsm modem;
     Ticker tick;
     SimType activeSim;

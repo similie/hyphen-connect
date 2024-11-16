@@ -12,11 +12,52 @@ SecureMQTTProcessor::SecureMQTTProcessor(Connection &connection)
  */
 bool SecureMQTTProcessor::init()
 {
-    while (!connection.init())
-        ;
+    if (!connection.isConnected())
+    {
+        if (!connection.init())
+        {
+            return false;
+        }
+    }
+    // initialize the certificate storage
+    loadCertificates();
+    // wait a tick for the network to be ready
+    delay(500);
     lastInActivity = millis();
     Log.noticeln("Network Connection Initialized");
     return connectServer();
+}
+
+bool SecureMQTTProcessor::attachClients()
+{
+    Client *netClient = connection.getClient();
+    if (netClient == nullptr)
+    {
+        Log.errorln("Failed to get network client.");
+        return false;
+    }
+    // slight delay to allow the modem to get ready for a new connection
+    // may not be required in all use cases
+    if (!loadCertificates())
+    {
+        Log.errorln("Failed to load certificates.");
+        return false;
+    }
+    sslClient.setClient(netClient);
+    // mqttClient.setClient(sslClient);
+    return true;
+}
+
+bool SecureMQTTProcessor::attachServer()
+
+{
+    mqttClient
+        .setServer(MQTT_IOT_ENDPOINT, MQTT_IOT_PORT)
+        .setClient(sslClient)
+        .setKeepAlive(KEEP_ALIVE)
+        .setCallback([this](char *topic, byte *payload, unsigned int length)
+                     { mqttCallback(topic, payload, length); });
+    return true;
 }
 
 /**
@@ -31,28 +72,17 @@ bool SecureMQTTProcessor::connectServer()
         Log.errorln("Network connection is not established.");
         return false;
     }
-    Client *netClient = connection.getClient();
-    if (netClient == nullptr)
-    {
-        Log.errorln("Failed to get network client.");
-        return false;
-    }
-    // slight delay to allow the modem to get ready for a new connection
-    // may not be required in all use cases
-    delay(300);
 
-    if (!loadCertificates())
+    if (!attachClients())
     {
-        Log.errorln("Failed to load certificates.");
         return false;
     }
 
-    sslClient.setClient(netClient);
-    mqttClient.setClient(sslClient);
-    mqttClient.setKeepAlive(KEEP_ALIVE);
-    mqttClient.setServer(MQTT_IOT_ENDPOINT, MQTT_IOT_PORT);
-    mqttClient.setCallback([this](char *topic, byte *payload, unsigned int length)
-                           { mqttCallback(topic, payload, length); });
+    if (!attachServer())
+    {
+        return false;
+    }
+
     Log.noticeln("MQTT initialized");
     return connect();
 }
@@ -105,6 +135,34 @@ void SecureMQTTProcessor::loop()
     lastInActivity = millis();
 }
 
+bool SecureMQTTProcessor::attachCertificates()
+{
+    for (u_int8_t i = 0; i < CERT_LENGTH; i++)
+    {
+        if (certificates[i].isEmpty())
+        {
+            Log.errorln("Certificate is empty");
+            return false;
+        }
+        const char *certContentC = certificates[i].c_str();
+        switch (i)
+        {
+        case cachedCertificates::CA:
+            sslClient.setCACert(certContentC);
+            break;
+        case cachedCertificates::DeviceCertificate:
+            sslClient.setCertificate(certContentC);
+            break;
+        case cachedCertificates::DevicePrivateKey:
+            sslClient.setPrivateKey(certContentC);
+            break;
+        default:
+            break;
+        }
+    }
+    return true;
+}
+
 /**
  * @brief loads the certificates from the secure MQTT connection
  *
@@ -112,6 +170,12 @@ void SecureMQTTProcessor::loop()
  */
 bool SecureMQTTProcessor::loadCertificates()
 {
+
+    if (certsCached)
+    {
+        return attachCertificates();
+    }
+
     if (!fm.start())
     {
         Log.errorln("Failed to initialize SPIFFS");
@@ -130,14 +194,13 @@ bool SecureMQTTProcessor::loadCertificates()
         Log.errorln("CA file is empty");
         return false;
     }
+    certificates[CA] = caContent;
     const char *caContentC = caContent.c_str();
     Log.noticeln("Loaded CA certificate:");
     Log.noticeln(caContentC);
-    sslClient.setCACert(caContentC);
-    // Load Device Certificate
     delay(100);
 #ifdef MQTT_DEVICE_CERTIFICATE
-    String caContent = String(MQTT_CA_CERTIFICATE);
+    String certContent = String(MQTT_DEVICE_CERTIFICATE);
 #else
     String certContent = fm.loadFileContents(MQTT_DEVICE_CERTIFICATE_NAME);
 #endif
@@ -146,14 +209,14 @@ bool SecureMQTTProcessor::loadCertificates()
         Log.errorln("Device certificate file is empty");
         return false;
     }
+
+    certificates[DeviceCertificate] = certContent;
     const char *certContentC = certContent.c_str();
     Log.noticeln("Loaded device certificate:");
     Log.noticeln(certContentC);
-    sslClient.setCertificate(certContentC);
-    // Load Device Private Key
     delay(100);
 #ifdef MQTT_DEVICE_PRIVATE_KEY
-    String caContent = String(MQTT_CA_CERTIFICATE);
+    String keyContent = String(MQTT_DEVICE_PRIVATE_KEY);
 #else
     String keyContent = fm.loadFileContents(MQTT_DEVICE_PRIVATE_KEY_NAME);
 #endif
@@ -163,11 +226,12 @@ bool SecureMQTTProcessor::loadCertificates()
         Log.errorln("Private key file is empty");
         return false;
     }
+    certificates[DevicePrivateKey] = keyContent;
     const char *keyContentC = keyContent.c_str();
     Log.noticeln("Loaded private key:");
     Log.noticeln(keyContentC);
-    sslClient.setPrivateKey(keyContentC);
     fm.end();
+    certsCached = true;
     return true;
 }
 
@@ -219,17 +283,31 @@ bool SecureMQTTProcessor::connect()
  */
 bool SecureMQTTProcessor::setupSecureConnection()
 {
-    Log.notice("Setting up AWS connection... ");
-    Log.noticeln(AWS_CLIENT_ID);
-
-    if (!mqttClient.connect(AWS_CLIENT_ID))
+    Log.notice("Setting up IoT connection... ");
+    Log.noticeln(CLIENT_ID);
+    uint8_t i = 0;
+    for (i; i <= MAX_CONNECTION_ATTEMPTS; i++)
     {
-        Log.errorln("Failed to connect to AWS IoT Core.");
+        if (!connection.isConnected())
+        {
+            return false;
+        }
+
+        if (mqttClient.connect(CLIENT_ID))
+        {
+            break;
+        }
+        Log.errorln("Failed to connect to IoT Core.");
+        delay(500);
+    }
+
+    if (i >= MAX_CONNECTION_ATTEMPTS)
+    {
         return false;
     }
 
     subscribeToTopics();
-    Log.noticeln("Connected to AWS IoT Core.");
+    Log.noticeln("Connected to IoT Core.");
     // the LED pin will show that the connection is established
     light.startBreathing();
     connectCount = 0;
@@ -240,7 +318,7 @@ bool SecureMQTTProcessor::setupSecureConnection()
  */
 void SecureMQTTProcessor::reconnect()
 {
-    Log.noticeln("Reconnecting to AWS IoT Core...");
+    Log.noticeln("Reconnecting to IoT Core...");
     disconnect();
     delay(500);
     connectServer();

@@ -20,6 +20,8 @@
 #define MQTT_DEVICE_PRIVATE_KEY_NAME "/private-key.pem" // the root certificate for the mqtt connection
 #endif
 
+#define CERT_LENGTH 3
+
 class SecureMQTTProcessor : public Processor
 {
 public:
@@ -33,8 +35,19 @@ public:
     void loop();
 
 private:
+    String certificates[CERT_LENGTH];
+    bool certsCached = false;
+    enum cachedCertificates
+    {
+        CA,
+        DeviceCertificate,
+        DevicePrivateKey
+    };
     void reconnect();
     bool hardDisconnect();
+    bool attachClients();
+    bool attachServer();
+    bool attachCertificates();
     FileManager fm;
     LightManager light;
     TaskHandle_t maintainConnectHandle = NULL;
@@ -43,11 +56,12 @@ private:
     unsigned long lastInActivity = 0;
     const uint8_t KEEP_ALIVE = 30;                              // Keep-alive interval in seconds
     const unsigned int KEEP_ALIVE_INTERVAL = KEEP_ALIVE * 1000; // Keep-alive interval in seconds
-    const char *AWS_CLIENT_ID = DEVICE_PUBLIC_ID;
+    const char *CLIENT_ID = DEVICE_PUBLIC_ID;
     bool keepAliveReady();
+    const uint8_t MAX_CONNECTION_ATTEMPTS = 5;
     Connection &connection;
     PubSubClient mqttClient;
-    SSLClientESP32 sslClient;
+    SSLClient sslClient;
     void mqttCallback(char *topic, byte *payload, unsigned int length);
     bool setupSecureConnection();
     bool loadCertificates();

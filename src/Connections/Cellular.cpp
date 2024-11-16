@@ -2,9 +2,9 @@
 
 Cellular::Cellular()
 #ifdef DUMP_AT_COMMANDS
-    : debugger(SerialAT, SerialMon), modem(debugger), gsmClient(modem, 0), sslClient(&gsmClient)
+    : debugger(SerialAT, SerialMon), modem(debugger), gsmClient(modem, 0)
 #else
-    : modem(SerialAT), gsmClient(modem, 0), sslClient(&gsmClient)
+    : modem(SerialAT), gsmClient(modem, 0)
 #endif
 {
     activeSim = SimType::SIM7600;
