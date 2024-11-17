@@ -61,7 +61,7 @@ private:
     const uint8_t MAX_CONNECTION_ATTEMPTS = 5;
     Connection &connection;
     PubSubClient mqttClient;
-    SSLClient sslClient;
+    SSLClientESP32 sslClient;
     void mqttCallback(char *topic, byte *payload, unsigned int length);
     bool setupSecureConnection();
     bool loadCertificates();

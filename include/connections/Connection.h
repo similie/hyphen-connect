@@ -1,6 +1,6 @@
 #include <ArduinoLog.h>
 #include <Arduino.h>
-#include <SSLClient.h>
+#include "SSLClientESP32.h"
 #ifndef connection_h
 #define connection_h
 class Connection

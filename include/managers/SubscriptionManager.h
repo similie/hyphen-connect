@@ -7,6 +7,9 @@
 #include <array>
 #include "Ticker.h"
 
+#ifndef REGISTRATION_WAIT_TIME_IN_SECONDS
+#define REGISTRATION_WAIT_TIME_IN_SECONDS 20 // 5 minutes
+#endif
 // Define custom hash and equal functions for Arduino String
 struct StringHash
 {
@@ -93,13 +96,15 @@ private:
     static void registrationCallback(SubscriptionManager *instance);
     Processor &processor;
 
+    String registrationTopic = String(MQTT_TOPIC_BASE) + "Post/Register/" + deviceId;
+
     String functionTopic = String(MQTT_TOPIC_BASE) + "Post/Function/" + deviceId + "/#";
     String functionResultsTopic = String(MQTT_TOPIC_BASE) + "Post/Function/Result/" + deviceId;
-    String functionRegistrationTopic = String(MQTT_TOPIC_BASE) + "Post/Function/Register/" + deviceId;
+    // String functionRegistrationTopic = String(MQTT_TOPIC_BASE) + "Post/Function/Register/" + deviceId;
 
     String variableTopic = String(MQTT_TOPIC_BASE) + "Post/Variable/" + deviceId + "/#";
     String variableResultsTopic = String(MQTT_TOPIC_BASE) + "Post/Variable/Result/" + deviceId;
-    String variableRegistrationTopic = String(MQTT_TOPIC_BASE) + "Post/Variable/Register/" + deviceId;
+    // String variableRegistrationTopic = String(MQTT_TOPIC_BASE) + "Post/Variable/Register/" + deviceId;
 };
 
 #endif

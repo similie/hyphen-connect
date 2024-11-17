@@ -30,7 +30,7 @@ bool SubscriptionManager::subscribe(const char *topic, std::function<void(const 
 
 void SubscriptionManager::registerFunctions()
 {
-    tick.attach(10, &SubscriptionManager::registrationCallback, this);
+    tick.attach(REGISTRATION_WAIT_TIME_IN_SECONDS, &SubscriptionManager::registrationCallback, this);
 }
 
 void SubscriptionManager::registrationCallback(SubscriptionManager *instance)
@@ -186,52 +186,34 @@ bool SubscriptionManager::publishTopic(String topic, String payload)
     {
         return false;
     }
+    Serial.printf("Publishing to %s: %s\n", topic.c_str(), payload.c_str());
     return processor.publish(topic.c_str(), payload.c_str());
 }
 
 void SubscriptionManager::sendRegistry()
 {
-    size_t functionCountSubtract = 0;
+    checkReady = false;
+    JsonDocument doc;
+    doc["id"] = deviceId;
+    JsonArray funArray = doc["functions"].to<JsonArray>();
+    JsonArray varArray = doc["variables"].to<JsonArray>();
+    doc["functionCount"] = functionCount;
+    doc["variableCount"] = variableCount;
+    String variables[variableCount];
     for (int i = 0; i < functionCount; i++)
     {
-        JsonDocument doc;
-        doc["key"] = functionTopics[i].c_str();
-        doc["id"] = deviceId;
-        String resultStr;
-        serializeJson(doc, resultStr);
-        if (!publishTopic(functionRegistrationTopic, resultStr.c_str()))
-        {
-            break;
-        }
-        functionCountSubtract++;
+        funArray.add(functionTopics[i]);
     }
-    functionCount -= functionCountSubtract;
-    if (functionCount)
-    {
-        return;
-    }
-    functionCountSubtract = 0;
     for (auto &entry : variableRegistry)
     {
-        JsonDocument doc;
-        doc["key"] = entry.first.c_str();
-        doc["id"] = deviceId;
-        String resultStr;
-        serializeJson(doc, resultStr);
-        if (!publishTopic(variableRegistrationTopic, resultStr.c_str()))
-        {
-            break;
-        }
-        functionCountSubtract++;
+        varArray.add(entry.first.c_str());
     }
-
-    variableCount -= functionCountSubtract;
-
-    if (variableCount || functionCount)
+    String resultStr;
+    serializeJson(doc, resultStr);
+    if (!publishTopic(registrationTopic, resultStr.c_str()))
     {
-        return;
+        return Log.errorln("Failed to publish registry");
     }
-
     tick.detach();
 }
 

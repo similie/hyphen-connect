@@ -1,7 +1,7 @@
 .pio
 .vscode
 platformio.ini
-partiions.csv
+partitions.csv
 data
 .DS_Store
 src/main.cpp
