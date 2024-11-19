@@ -13,13 +13,6 @@ std::unique_ptr<T> make_unique(Args &&...args)
 {
     return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
 }
-enum class ConnectionType
-{
-    WIFI_PREFERRED,
-    CELLULAR_PREFERRED,
-    WIFI_ONLY,
-    CELLULAR_ONLY
-};
 
 class ConnectionManager : public Connection
 {
@@ -45,6 +38,9 @@ public:
     bool keepAlive(uint8_t maxRetries) override;
     void maintain() override;
     Client *getClient() override;
+    Connection &connection() override;
+    ConnectionClass getClass() override;
+    bool getTime(struct tm &, float &) override;
 };
 
 #endif // CONNECTIONMANAGER_H

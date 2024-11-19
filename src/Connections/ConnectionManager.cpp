@@ -98,9 +98,6 @@ bool ConnectionManager::connect()
         if (currentConnection)
         {
             disconnect();
-            // currentConnection->disconnect();
-            // currentConnection->off(); // Power off the current connection
-            // currentConnection = nullptr;
         }
         if (attemptConnection(*conn))
         {
@@ -186,4 +183,31 @@ Client *ConnectionManager::getClient()
         return currentConnection->getClient();
     }
     return nullptr;
+}
+
+Connection &ConnectionManager::connection()
+{
+    if (currentConnection)
+    {
+        return currentConnection->connection();
+    }
+    return *this;
+}
+
+ConnectionClass ConnectionManager::getClass()
+{
+    if (currentConnection)
+    {
+        return currentConnection->getClass();
+    }
+    return ConnectionClass::NONE;
+}
+
+bool ConnectionManager::getTime(struct tm &timeinfo, float &timezone)
+{
+    if (currentConnection)
+    {
+        return currentConnection->getTime(timeinfo, timezone);
+    }
+    return false;
 }

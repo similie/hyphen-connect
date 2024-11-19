@@ -94,6 +94,8 @@ public:
     void variable(const char *, double *);
     void function(const char *, std::function<int(const char *)>);
     Client &getClient();
+    ConnectionClass getConnectionClass();
+    Connection &getConnection();
 };
 
 #endif

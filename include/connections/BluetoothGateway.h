@@ -23,10 +23,13 @@ public:
     bool keepAlive(uint8_t maxRetries) override;
     void maintain() override;
     Client *getClient() override; // Return nullptr since Bluetooth doesn't use a WiFi client
+    ConnectionClass getClass() { return ConnectionClass::BLUETOOTH; }
 
     // Additional methods to handle data exchange
     void sendConfigData(const String &configData);
     String receiveData();
+    Connection &connection() override { return *this; }
+    bool getTime(struct tm &, float &) override;
 };
 
 #endif // BLUETOOTHGATEWAY_H

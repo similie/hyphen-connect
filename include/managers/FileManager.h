@@ -13,6 +13,7 @@ private:
 public:
     FileManager();
     String loadFileContents(const char *name);
+    String fileContentsOpen(const char *name);
     bool start();
     void end();
     bool running();

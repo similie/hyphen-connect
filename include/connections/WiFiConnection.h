@@ -37,6 +37,9 @@ public:
     bool keepAlive(uint8_t maxRetries) override;
     void maintain() override;
     Client *getClient() override;
+    Connection &connection() override { return *this; }
+    ConnectionClass getClass() { return ConnectionClass::WIFI; }
+    bool getTime(struct tm &, float &) override;
 };
 
 #endif // ESP32WIFI_H

@@ -14,6 +14,17 @@ bool BluetoothGateway::init()
     Log.noticeln("Bluetooth initialized successfully");
     return true;
 }
+/**
+ * @brief implements the getTime method
+ *
+ * @param timeinfo
+ * @return true
+ * @return false
+ */
+bool BluetoothGateway::getTime(struct tm &timeinfo, float &timezone)
+{
+    return false;
+}
 
 // Connect to Bluetooth device (always returns true since ESP32 listens for incoming connections)
 bool BluetoothGateway::connect()

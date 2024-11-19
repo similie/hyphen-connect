@@ -161,3 +161,22 @@ Client &HyphenConnect::getClient()
 {
     return *connection.getClient();
 }
+
+/**
+ * @brief Returns the connection class enumeration
+ *
+ * @return ConnectionClass
+ */
+ConnectionClass HyphenConnect::getConnectionClass()
+{
+    return connection.getClass();
+}
+/**
+ * @brief To retrieve the underlying Connection layer
+ *
+ * @return Connection&
+ */
+Connection &HyphenConnect::getConnection()
+{
+    return connection.connection();
+}

@@ -2,4 +2,4 @@
 #include "managers/SubscriptionManager.h"
 #include "managers/LightManager.h"
 #include "managers/FileManager.h"
-#include "managers/LoggingManager.h"    
+#include "managers/LoggingManager.h"

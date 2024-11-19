@@ -19,6 +19,7 @@ bool SecureMQTTProcessor::init()
             return false;
         }
     }
+    Log.noticeln("Network Connection Initialized");
     // initialize the certificate storage
     loadCertificates();
     // wait a tick for the network to be ready

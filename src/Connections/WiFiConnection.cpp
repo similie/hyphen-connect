@@ -10,6 +10,11 @@ WiFiConnection::WiFiConnection(const char *ssid, const char *password) : WiFiCon
     this->password = password;
 }
 
+bool WiFiConnection::getTime(struct tm &timeinfo, float &timezone)
+{
+    return false;
+}
+
 // Add a new network and save to preferences
 bool WiFiConnection::addNetwork(const char *ssid, const char *password)
 {

@@ -35,6 +35,7 @@ public:
     void loop();
 
 private:
+    
     String certificates[CERT_LENGTH];
     bool certsCached = false;
     enum cachedCertificates

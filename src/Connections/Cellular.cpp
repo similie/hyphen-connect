@@ -21,6 +21,36 @@ Client *Cellular::getClient()
     return new TinyGsmClient(modem, 0);
 }
 
+bool Cellular::getTime(struct tm &timeinfo, float &timezone)
+{
+    if (!isConnected())
+    {
+        return false;
+    }
+
+    int year, month, day, hour, minute, second;
+
+    if (!modem.getNetworkTime(&year, &month, &day, &hour, &minute, &second, &timezone))
+    {
+        String networkTime = modem.getGSMDateTime(DATE_TIME);
+        if (networkTime == nullptr || networkTime.length() == 0)
+        {
+            Log.warningln("Failed to get network time");
+            return false;
+        }
+        sscanf(networkTime.c_str(), "%d/%d/%d,%d:%d:%d%*c%d", &year, &month, &day, &hour, &minute, &second, &timezone);
+    }
+    year += (year < 100) ? ((year < 70) ? 2000 : 1900) : 0;
+    timeinfo.tm_year = year - 1900;
+    timeinfo.tm_mon = month - 1;
+    timeinfo.tm_mday = day;
+    timeinfo.tm_hour = hour;
+    timeinfo.tm_min = minute;
+    timeinfo.tm_sec = second;
+    timeinfo.tm_isdst = -1;
+    return true;
+}
+
 GPSData Cellular::getGPSData()
 {
     enableGPS();

@@ -45,7 +45,11 @@ public:
     Client *getClient();
     void enableGPS();
     void disableGPS();
+    bool getCellularTime(struct tm &);
     GPSData getGPSData();
+    Connection &connection() override { return *this; }
+    ConnectionClass getClass() { return ConnectionClass::CELLULAR; }
+    bool getTime(struct tm &, float &) override;
 
 private:
 #ifdef DUMP_AT_COMMANDS

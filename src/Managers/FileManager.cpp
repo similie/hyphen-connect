@@ -18,6 +18,14 @@ String FileManager::loadFileContents(const char *name)
     return contents;
 }
 
+String FileManager::fileContentsOpen(const char *name)
+{
+    start();
+    String contents = loadFileContents(name);
+    end();
+    return contents;
+}
+
 bool FileManager::running()
 {
     return isRunning;
