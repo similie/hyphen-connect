@@ -50,7 +50,12 @@ bool Cellular::getTime(struct tm &timeinfo, float &timezone)
     timeinfo.tm_isdst = -1;
     return true;
 }
-
+/**
+ * @brief Get GPS data from modem
+ * @todo This function is not yet implemented as my test unit does not seem to have a
+ * working GPS module.
+ * @return GPSData
+ */
 GPSData Cellular::getGPSData()
 {
     enableGPS();
@@ -59,8 +64,6 @@ GPSData Cellular::getGPSData()
 
     unsigned long startTime = millis();
     const unsigned long timeout = 10000;
-    // tick.attach_ms(200, []()
-    //                { digitalWrite(LED_PIN, !digitalRead(LED_PIN)); });
 
     while (millis() - startTime < timeout)
     {
@@ -130,11 +133,10 @@ bool Cellular::init()
     return false;
 }
 
-// FreeRTOS task function for maintain
+// FreeRTOS task function for maintain. Not used in this implementation
 void Cellular::maintainTask(void *param)
 {
     Cellular *cellular = static_cast<Cellular *>(param);
-
     while (true)
     {
         cellular->maintain();                                          // Call maintain function to check and reconnect
@@ -188,8 +190,7 @@ void Cellular::initModem()
         Log.errorln("Failed to initialize modem.");
         return;
     }
-
-    if (modem.getSimStatus() != 3 && GSM_SIM_PIN)
+    if (modem.getSimStatus() != SimStatus::SIM_READY && GSM_SIM_PIN)
     {
         modem.simUnlock(GSM_SIM_PIN);
     }
@@ -204,16 +205,11 @@ void Cellular::maintain()
         return;
     }
     bool connection = isConnected();
-    Log.noticeln("Maintaining connection ");
-
     if (connection && connected)
     {
-        return modem.maintain();
+        return;
     }
     connected = false;
-    Log.noticeln("Reconnecting...");
-    modem.init();
-    connect();
 }
 
 // Connect to the network
@@ -225,13 +221,8 @@ bool Cellular::connect()
         Log.errorln("Network connection failed.");
         return false;
     }
-    Log.noticeln("Network connected");
+
     connected = modem.gprsConnect(apn, gprsUser, gprsPass);
-    if (connected)
-    {
-        Log.noticeln("GPRS connected");
-        // modem.sendAT("+CDNSCFG=\"8.8.8.8\"");
-    }
     return connected;
 }
 
@@ -304,7 +295,52 @@ bool Cellular::setupNetwork()
     return modem.setNetworkMode(2); // Automatic mode (GSM and LTE)
 }
 
-int Cellular::getSignalQuality()
+inline String Cellular::getModemInfo()
+{
+    return modem.getModemInfo();
+}
+
+inline String Cellular::getIMSI()
+{
+    return modem.getIMSI();
+}
+
+inline String Cellular::getLocalIP()
+{
+    return modem.getLocalIP();
+}
+
+inline String Cellular::getIMEI()
+{
+    return modem.getIMEI();
+}
+
+inline String Cellular::getOperator()
+{
+    return modem.getOperator();
+}
+
+inline int16_t Cellular::getNetworkMode()
+{
+    return modem.getNetworkMode();
+}
+
+inline String Cellular::getSimCCID()
+{
+    return modem.getSimCCID();
+}
+
+inline String Cellular::getProvider()
+{
+    return modem.getProvider();
+}
+
+float Cellular::getTemperature()
+{
+    return modem.getTemperature();
+}
+
+inline int16_t Cellular::getSignalQuality()
 {
     return modem.getSignalQuality();
 }

@@ -1,6 +1,3 @@
-#include "Managers.h"
-#include "Connections.h"
-#include "Processors.h"
 
 #ifndef __hyphen_connect_h
 #define __hyphen_connect_h
@@ -68,6 +65,10 @@
 #ifndef MQTT_TOPIC_BASE
 #define MQTT_TOPIC_BASE "HY/" // the base topic for the mqtt messages. This is used to filter messages
 #endif
+
+#include "Managers.h"
+#include "Connections.h"
+#include "Processors.h"
 
 class HyphenConnect
 {

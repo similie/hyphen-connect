@@ -83,7 +83,7 @@ void LightManager::endBreathing()
     }
     vTaskDelete(breathHandle);
     breathHandle = NULL;
-    flashFor(3000);
+    // flashFor(3000);
 }
 
 void LightManager::bright()

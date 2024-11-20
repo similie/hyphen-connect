@@ -44,8 +44,8 @@ bool SecureMQTTProcessor::attachClients()
         Log.errorln("Failed to load certificates.");
         return false;
     }
+
     sslClient.setClient(netClient);
-    // mqttClient.setClient(sslClient);
     return true;
 }
 

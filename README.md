@@ -164,8 +164,11 @@ CELLULAR_POWER_PIN_AUX 4
 CELLULAR_POWER_PIN 25
 // What is the pin for controlling when cellular is on or off
 CELLULAR_IND_PIN=36
-// The default WiFi SSID. In future iteration, we will support connecting to
-// the device via Bluetooth to configure the wifi.
+// the keep alive interval in seconds. This is used to keep the connection alive with the cloud.
+MQTT_KEEP_ALIVE_INTERVAL 30
+// when the keep alive interval also maintains a maintain function that is trigger ever x seconds. The offset allows us to set a multiple i.e. 30 * 1 = 30 seconds.
+MQTT_KEEP_ALIVE_INTERVAL_LOOP_OFFSET 1
+// The default WiFi SSID. In future iteration, we will support connecting the device via Bluetooth to configure the wifi credentials
 DEFAULT_WIFI_SSID ""
 // The default WiFi password.
 DEFAULT_WIFI_PASS ""

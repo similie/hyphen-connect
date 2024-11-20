@@ -38,7 +38,7 @@ public:
     bool on();
     bool off();
     bool keepAlive(uint8_t seconds);
-    int getSignalQuality();
+
     bool init();
     void maintain();
     TinyGsm &getModem();
@@ -50,6 +50,13 @@ public:
     Connection &connection() override { return *this; }
     ConnectionClass getClass() { return ConnectionClass::CELLULAR; }
     bool getTime(struct tm &, float &) override;
+    inline String getIMEI();
+    inline String getIMSI();
+    inline String getLocalIP();
+    inline String getModemInfo();
+    inline String getOperator();
+    inline int16_t getNetworkMode();
+    inline int16_t getSignalQuality();
 
 private:
 #ifdef DUMP_AT_COMMANDS

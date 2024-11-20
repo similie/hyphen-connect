@@ -8,6 +8,14 @@
 #include "Managers.h"
 #include "Processor.h"
 
+#ifndef MQTT_KEEP_ALIVE_INTERVAL
+#define MQTT_KEEP_ALIVE_INTERVAL 30 // seconds
+#endif
+
+#ifndef MQTT_KEEP_ALIVE_INTERVAL_LOOP_OFFSET
+#define MQTT_KEEP_ALIVE_INTERVAL_LOOP_OFFSET 1 // seconds
+#endif
+
 #ifndef MQTT_CA_CERTIFICATE_NAME
 #define MQTT_CA_CERTIFICATE_NAME "/root-ca.pem" // the root certificate for the mqtt connection
 #endif
@@ -20,7 +28,7 @@
 #define MQTT_DEVICE_PRIVATE_KEY_NAME "/private-key.pem" // the root certificate for the mqtt connection
 #endif
 
-#define CERT_LENGTH 3
+#define CERT_LENGTH 3 // should not be changed
 
 class SecureMQTTProcessor : public Processor
 {
@@ -35,7 +43,6 @@ public:
     void loop();
 
 private:
-    
     String certificates[CERT_LENGTH];
     bool certsCached = false;
     enum cachedCertificates
@@ -55,8 +62,8 @@ private:
     uint8_t connectCount = 0;
     const uint8_t HARD_CONNECTION_RESTART = 10;
     unsigned long lastInActivity = 0;
-    const uint8_t KEEP_ALIVE = 30;                              // Keep-alive interval in seconds
-    const unsigned int KEEP_ALIVE_INTERVAL = KEEP_ALIVE * 1000; // Keep-alive interval in seconds
+    const uint8_t KEEP_ALIVE = MQTT_KEEP_ALIVE_INTERVAL;                                               // Keep-alive interval in seconds
+    const unsigned int KEEP_ALIVE_INTERVAL = KEEP_ALIVE * MQTT_KEEP_ALIVE_INTERVAL_LOOP_OFFSET * 1000; // Keep-alive interval in seconds
     const char *CLIENT_ID = DEVICE_PUBLIC_ID;
     bool keepAliveReady();
     const uint8_t MAX_CONNECTION_ATTEMPTS = 5;
