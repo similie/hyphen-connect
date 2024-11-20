@@ -55,9 +55,11 @@ public:
     inline String getLocalIP();
     inline String getModemInfo();
     inline String getOperator();
+    inline String getProvider();
     inline int16_t getNetworkMode();
     inline int16_t getSignalQuality();
-
+    inline String getSimCCID();
+    float getTemperature();
 private:
 #ifdef DUMP_AT_COMMANDS
     StreamDebugger debugger;
