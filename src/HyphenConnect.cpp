@@ -9,7 +9,7 @@ HyphenConnect::HyphenConnect(ConnectionType connectionType) : connection(connect
 {
 }
 
-HyphenConnect::HyphenConnect() : HyphenConnect(ConnectionType::WIFI_PREFERRED)
+HyphenConnect::HyphenConnect() : HyphenConnect(ConnectionType::WIFI_ONLY)
 {
 }
 /**

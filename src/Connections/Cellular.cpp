@@ -21,26 +21,116 @@ Client *Cellular::getClient()
     return new TinyGsmClient(modem, 0);
 }
 
+// Active NTP sync via AT+CNTP
+bool Cellular::syncTimeViaCNTP(float tz)
+{
+    // Enable network time update if supported
+    modem.sendAT("+CLTS=1");
+    modem.waitResponse();
+    // Configure the NTP server and timezone offset (using pool.ntp.org and UTC offset 0)
+    char cNTPCommand[64];
+    snprintf(cNTPCommand, sizeof(cNTPCommand), "+CNTP=\"pool.ntp.org\",%d", (int)tz * 4);
+    modem.sendAT(cNTPCommand);
+
+    if (modem.waitResponse() != 1)
+    {
+        Log.warningln("Failed to set NTP server via CNTP.");
+        return false;
+    }
+
+    // Trigger NTP synchronization
+    modem.sendAT("+CNTP");
+    if (modem.waitResponse(10000L, "+CNTP:") != 1)
+    {
+        Log.warningln("NTP synchronization via CNTP failed.");
+        return false;
+    }
+
+    // Give the modem time to update its internal clock
+    delay(3000);
+
+    // Optionally, read the updated time for debugging
+    String updatedTime = modem.getGSMDateTime(DATE_TIME);
+    if (updatedTime.length() == 0)
+    {
+        Log.warningln("Failed to retrieve updated time via AT+CCLK.");
+        return false;
+    }
+    Log.notice(F("Updated time from modem: %s" CR), updatedTime.c_str());
+    return true;
+}
+
+// Combined function to sync time and then retrieve it
 bool Cellular::getTime(struct tm &timeinfo, float &timezone)
 {
     if (!isConnected())
     {
+        Log.warningln("Not connected to cellular network.");
         return false;
     }
 
-    int year, month, day, hour, minute, second;
+    // First, attempt to actively sync time via AT+CNTP.
+    // (Even if this fails, we try to get time from the modem's built-in methods.)
+    bool syncOk = syncTimeViaCNTP(timezone);
+    if (!syncOk)
+    {
+        Log.warningln("Active CNTP sync failed; falling back to modem network time.");
+    }
 
+   
+    int year = 0, month = 0, day = 0, hour = 0, minute = 0, second = 0;
+
+    // Try using the modem's getNetworkTime() first.
     if (!modem.getNetworkTime(&year, &month, &day, &hour, &minute, &second, &timezone))
     {
+        Log.notice(F("getNetworkTime() failed. Attempting fallback using GSM DateTime." CR));
+        // Fallback: get the GSM date/time string (expected format: "yy/mm/dd,hh:mm:ss+tz")
         String networkTime = modem.getGSMDateTime(DATE_TIME);
-        if (networkTime == nullptr || networkTime.length() == 0)
+        if (networkTime.length() == 0)
         {
-            Log.warningln("Failed to get network time");
+            Log.warningln("Failed to get network time: GSM DateTime string is empty.");
             return false;
         }
-        sscanf(networkTime.c_str(), "%d/%d/%d,%d:%d:%d%*c%d", &year, &month, &day, &hour, &minute, &second, &timezone);
+        // Parse the string; note that %f captures a fractional timezone (after skipping the sign with %*c)
+        int ret = sscanf(networkTime.c_str(), "%d/%d/%d,%d:%d:%d%*c%f",
+                         &year, &month, &day, &hour, &minute, &second, &timezone);
+        if (ret < 7)
+        {
+            Log.warning("Failed to parse GSM date/time string: ");
+            Log.warningln(F("%s"), networkTime);
+            return false;
+        }
     }
-    year += (year < 100) ? ((year < 70) ? 2000 : 1900) : 0;
+
+    // Convert a two-digit year to a full year if needed
+    if (year < 100)
+    {
+        year += (year < 70) ? 2000 : 1900;
+    }
+
+    // Dynamically adjust the year if it is far ahead relative to our build year.
+    int buildYear = getBuildYear();
+    // If the reported year exceeds the build year by more than 2 years, assume it needs correction.
+    if (year > buildYear + 2)
+    {
+        int offset = year - buildYear;
+        Log.warning("Reported year (");
+        Log.warning(F("%s"), String(year));
+        Log.warning(") is far ahead of build year (");
+        Log.warning(F("%s"), String(buildYear));
+        Log.warningln("), applying correction.");
+        year -= offset;
+    }
+
+    // Validate the parsed date/time components
+    if (month < 1 || month > 12 || day < 1 || day > 31 ||
+        hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59)
+    {
+        Log.warningln("Invalid date/time received.");
+        return false;
+    }
+
+    // Populate the tm structure
     timeinfo.tm_year = year - 1900;
     timeinfo.tm_mon = month - 1;
     timeinfo.tm_mday = day;
@@ -48,7 +138,18 @@ bool Cellular::getTime(struct tm &timeinfo, float &timezone)
     timeinfo.tm_min = minute;
     timeinfo.tm_sec = second;
     timeinfo.tm_isdst = -1;
+
+    Log.notice(F("Time updated: %04d-%02d-%02d %02d:%02d:%02d, timezone: %.2f" CR),
+               year, month, day, hour, minute, second, timezone);
     return true;
+}
+// Helper to extract the build year from __DATE__ (format "Mmm dd yyyy")
+int Cellular::getBuildYear()
+{
+    char yearStr[5] = {0};
+    // __DATE__ format: "Mmm dd yyyy" e.g., "Mar 27 2025"
+    strncpy(yearStr, __DATE__ + 7, 4);
+    return atoi(yearStr);
 }
 /**
  * @brief Get GPS data from modem
@@ -148,7 +249,7 @@ void Cellular::maintainTask(void *param)
 bool Cellular::on()
 {
     setupPower();
-    delay(10000);
+    // delay(10000);
     SerialAT.begin(UART_BAUD, SERIAL_8N1, CELLULAR_PIN_RX, CELLULAR_PIN_TX);
     initModem();
     return connected;
@@ -185,6 +286,24 @@ bool Cellular::off()
 // Initialize the modem
 void Cellular::initModem()
 {
+    unsigned long startTime = millis();
+    bool modemReady = false;
+    while (millis() - startTime < 60000)
+    { // Wait up to 60 seconds
+        if (modem.testAT())
+        { // Check if modem responds
+            modemReady = true;
+            break;
+        }
+        delay(1000);
+    }
+
+    if (!modemReady)
+    {
+        return;
+    }
+    Serial.print("GETTING THIS BITCH RUNNING");
+
     if (!modem.init())
     {
         Log.errorln("Failed to initialize modem.");

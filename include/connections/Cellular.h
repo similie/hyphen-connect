@@ -4,7 +4,7 @@
 #define SerialMon Serial
 #define SerialAT Serial1
 #include <TinyGsmClient.h>
-// #define DUMP_AT_COMMANDS 0
+#define DUMP_AT_COMMANDS 0
 #ifdef DUMP_AT_COMMANDS
 #include <StreamDebugger.h>
 #endif
@@ -60,6 +60,7 @@ public:
     inline int16_t getSignalQuality();
     inline String getSimCCID();
     float getTemperature();
+
 private:
 #ifdef DUMP_AT_COMMANDS
     StreamDebugger debugger;
@@ -82,5 +83,7 @@ private:
     void setupPower();
     bool setupNetwork();
     void terminateThreads();
+    int getBuildYear();
+    bool syncTimeViaCNTP(float tz);
 };
 #endif
