@@ -211,3 +211,39 @@ bool ConnectionManager::getTime(struct tm &timeinfo, float &timezone)
     }
     return false;
 }
+
+Connection &ConnectionManager::getConnection(ConnectionClass findConnection)
+{
+    for (auto &conn : connections)
+    {
+        if (conn->getClass() == findConnection)
+        {
+            return *conn;
+        }
+    }
+    // As a fallback, if there is at least one connection, return the first one.
+    if (!connections.empty())
+    {
+        return *connections[0];
+    }
+
+    // Otherwise, create a static dummy (this should never happen in a properly configured system)
+    static Cellular dummy;
+    return dummy;
+}
+
+bool ConnectionManager::updateApn(const char *apn)
+{
+    Cellular &cellConn = (Cellular &)getConnection(ConnectionClass::CELLULAR);
+    return cellConn.setApn(apn);
+}
+bool ConnectionManager::updateSimPin(const char *simPin)
+{
+    Cellular &cellConn = (Cellular &)getConnection(ConnectionClass::CELLULAR);
+    return cellConn.setSimPin(simPin);
+}
+bool ConnectionManager::addWifiNetwork(const char *ssid, const char *password)
+{
+    WiFiConnection &cellConn = (WiFiConnection &)getConnection(ConnectionClass::WIFI);
+    return cellConn.addNetwork(ssid, password);
+}

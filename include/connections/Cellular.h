@@ -60,17 +60,21 @@ public:
     inline int16_t getSignalQuality();
     inline String getSimCCID();
     float getTemperature();
+    bool setSimPin(const char *);
+    bool setApn(const char *);
+    bool reload();
 
 private:
 #ifdef DUMP_AT_COMMANDS
     StreamDebugger debugger;
 #endif
+    String simPin = String(GSM_SIM_PIN);
     TinyGsmClient gsmClient;
     TinyGsm modem;
     Ticker tick;
     SimType activeSim;
     bool connected;
-    const char *apn = CELLULAR_APN;
+    String apn = String(CELLULAR_APN);
     const char *gprsUser = "";
     const char *gprsPass = "";
     uint8_t keepAliveInterval;              // Store the delay interval in seconds

@@ -180,3 +180,10 @@ Connection &HyphenConnect::getConnection()
 {
     return connection.connection();
 }
+/**
+ * @brief We can access the manager instance from our main application
+ */
+SubscriptionManager &HyphenConnect::getManager()
+{
+    return manager;
+}

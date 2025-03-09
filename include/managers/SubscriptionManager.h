@@ -71,6 +71,10 @@ public:
     void variable(const char *name, long *var);
     void variable(const char *name, String *var);
     void variable(const char *name, double *var);
+    String runFunction(const char *, const char *);
+    String runVariable(const char *, const char *);
+    
+    
     // Hy/Post/Function/<DeviceID>/<FunctionID>/<CallID>
     // Hy/Post/Function/Result/<DeviceID>/<FunctionID>/<CallID>/
     // Hy/Post/Function/Register/<DeviceID>

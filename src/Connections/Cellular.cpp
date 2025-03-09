@@ -77,7 +77,6 @@ bool Cellular::getTime(struct tm &timeinfo, float &timezone)
         Log.warningln("Active CNTP sync failed; falling back to modem network time.");
     }
 
-   
     int year = 0, month = 0, day = 0, hour = 0, minute = 0, second = 0;
 
     // Try using the modem's getNetworkTime() first.
@@ -283,6 +282,13 @@ bool Cellular::off()
     return true;
 }
 
+bool Cellular::reload()
+{
+    off();
+    delay(1000);
+    return on();
+}
+
 // Initialize the modem
 void Cellular::initModem()
 {
@@ -302,19 +308,29 @@ void Cellular::initModem()
     {
         return;
     }
-    Serial.print("GETTING THIS BITCH RUNNING");
 
     if (!modem.init())
     {
         Log.errorln("Failed to initialize modem.");
         return;
     }
-    if (modem.getSimStatus() != SimStatus::SIM_READY && GSM_SIM_PIN)
+    if (modem.getSimStatus() != SimStatus::SIM_READY && simPin)
     {
-        modem.simUnlock(GSM_SIM_PIN);
+        modem.simUnlock(simPin.c_str());
     }
 
     connected = setupNetwork();
+}
+
+bool Cellular::setSimPin(const char *sPin)
+{
+    simPin = String(sPin);
+    return reload();
+}
+bool Cellular::setApn(const char *setApn)
+{
+    apn = String(setApn);
+    return reload();
 }
 
 void Cellular::maintain()
@@ -341,7 +357,7 @@ bool Cellular::connect()
         return false;
     }
 
-    connected = modem.gprsConnect(apn, gprsUser, gprsPass);
+    connected = modem.gprsConnect(apn.c_str(), gprsUser, gprsPass);
     return connected;
 }
 

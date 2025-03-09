@@ -78,7 +78,7 @@ bool SubscriptionManager::isConnected()
     return processor.isConnected();
 }
 
-void SubscriptionManager::variableCallback(const char *topic, const char *payload)
+String SubscriptionManager::runVariable(const char *topic, const char *payload)
 {
     String callId = getCallId(topic);
     String key = getTopicKey(topic);
@@ -86,7 +86,7 @@ void SubscriptionManager::variableCallback(const char *topic, const char *payloa
     if (varIt == variableRegistry.end())
     {
         Log.warningln("Variable or function not found.");
-        return;
+        return "";
     }
 
     JsonDocument doc;
@@ -114,6 +114,15 @@ void SubscriptionManager::variableCallback(const char *topic, const char *payloa
     // Serialize and publish the JSON document
     String resultStr;
     serializeJson(doc, resultStr);
+    return resultStr;
+}
+
+void SubscriptionManager::variableCallback(const char *topic, const char *payload)
+{
+    String callId = getCallId(topic);
+    String key = getTopicKey(topic);
+    // Serialize and publish the JSON document
+    String resultStr = runVariable(topic, payload);
     String sendTopic = variableResultsTopic + "/" + key + "/" + callId;
     if (!publishTopic(sendTopic, resultStr))
     {
@@ -121,16 +130,15 @@ void SubscriptionManager::variableCallback(const char *topic, const char *payloa
     }
 }
 
-void SubscriptionManager::functionalCallback(const char *topic, const char *payload)
+String SubscriptionManager::runFunction(const char *topic, const char *payload)
 {
-
     String callId = getCallId(topic);
     String key = getTopicKey(topic);
     auto it = functionCallbacks.find(key.c_str());
     if (it == functionCallbacks.end())
     {
         Log.warningln("Function not found.");
-        return;
+        return "";
     }
     JsonDocument doc;
     // Call the function if it was found
@@ -141,6 +149,14 @@ void SubscriptionManager::functionalCallback(const char *topic, const char *payl
     doc["request"] = callId;
     String resultStr;
     serializeJson(doc, resultStr);
+    return resultStr;
+}
+
+void SubscriptionManager::functionalCallback(const char *topic, const char *payload)
+{
+    String callId = getCallId(topic);
+    String key = getTopicKey(topic);
+    String resultStr = runFunction(topic, payload);
     String sendTopic = functionResultsTopic + "/" + key + "/" + callId;
     if (!publishTopic(sendTopic, resultStr))
     {

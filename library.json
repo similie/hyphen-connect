@@ -1,6 +1,6 @@
 {
   "name": "HyphenConnect",
-  "version": "0.0.7",
+  "version": "0.0.9",
   "license": "MIT",
   "keywords": ["ESP32", "Internet Connectivity", "MQTT", "Cellular", "WiFi"],
   "description": "Connects the ESP32 to the internet using WiFi or Cellular and offers MQTT-backed cloud callbacks and variable registration.",

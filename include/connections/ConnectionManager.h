@@ -41,6 +41,11 @@ public:
     Connection &connection() override;
     ConnectionClass getClass() override;
     bool getTime(struct tm &, float &) override;
+
+    Connection &getConnection(ConnectionClass);
+    bool updateApn(const char *);
+    bool updateSimPin(const char *);
+    bool addWifiNetwork(const char *, const char *);
 };
 
 #endif // CONNECTIONMANAGER_H
