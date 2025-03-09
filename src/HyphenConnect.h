@@ -98,7 +98,8 @@ public:
     Client &getClient();
     ConnectionClass getConnectionClass();
     Connection &getConnection();
-    SubscriptionManager &getManager();
+    SubscriptionManager &getSubscriptionManager();
+    ConnectionManager &getConnectionManager();
 };
 
 #endif

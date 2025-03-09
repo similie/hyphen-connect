@@ -183,7 +183,12 @@ Connection &HyphenConnect::getConnection()
 /**
  * @brief We can access the manager instance from our main application
  */
-SubscriptionManager &HyphenConnect::getManager()
+SubscriptionManager &HyphenConnect::getSubscriptionManager()
 {
     return manager;
+}
+
+ConnectionManager &HyphenConnect::getConnectionManager()
+{
+    return connection;
 }
