@@ -9,6 +9,9 @@ Cellular::Cellular()
 {
     activeSim = SimType::SIM7600;
     connected = false;
+    pinMode(CELLULAR_POWER_PIN, OUTPUT);
+    pinMode(CELLULAR_POWER_PIN_AUX, OUTPUT);
+    digitalWrite(CELLULAR_POWER_PIN_AUX, HIGH);
 }
 
 TinyGsm &Cellular::getModem()
@@ -200,10 +203,10 @@ void Cellular::setupPower()
 {
 
     delay(10);
-    pinMode(CELLULAR_POWER_PIN, OUTPUT);
+    // pinMode(CELLULAR_POWER_PIN, OUTPUT);
     digitalWrite(CELLULAR_POWER_PIN, HIGH);
     // this is the action for the SIM7600, other sims may have different power requirements
-    pinMode(CELLULAR_POWER_PIN_AUX, OUTPUT);
+    // pinMode(CELLULAR_POWER_PIN_AUX, OUTPUT);
     digitalWrite(CELLULAR_POWER_PIN_AUX, HIGH);
     delay(500);
     digitalWrite(CELLULAR_POWER_PIN_AUX, LOW);
@@ -212,7 +215,7 @@ void Cellular::setupPower()
      * on this pin indicate when the cellular module
      * I ready to communicate
      */
-    pinMode(CELLULAR_IND_PIN, INPUT);
+    // pinMode(CELLULAR_IND_PIN, INPUT);
 }
 
 bool Cellular::init()
@@ -244,6 +247,24 @@ void Cellular::maintainTask(void *param)
     }
 }
 
+bool Cellular::powerSave(bool on)
+{
+    return setFunctionality((int)on);
+}
+
+bool Cellular::setFunctionality(int func)
+{
+    String cmd = String("+FUN=") + String(func);
+    Log.noticeln("Configuring Functionality context: %s", cmd.c_str());
+    modem.sendAT(cmd.c_str());
+    if (modem.waitResponse(5000L, "OK") != 1)
+    {
+        Log.errorln("Failed to function mode");
+        return false;
+    }
+    return true;
+}
+
 // Turn on the modem
 bool Cellular::on()
 {
@@ -251,6 +272,15 @@ bool Cellular::on()
     // delay(10000);
     SerialAT.begin(UART_BAUD, SERIAL_8N1, CELLULAR_PIN_RX, CELLULAR_PIN_TX);
     initModem();
+    delay(1000L);
+    // String cmd = String("+FUN=0");
+    // Log.noticeln("Configuring SSL context: %s", cmd.c_str());
+    // modem.sendAT(cmd.c_str());
+    // if (modem.waitResponse(5000L, "OK") != 1)
+    // {
+    //     Log.errorln("Failed to function mode");
+    // }
+
     return connected;
 }
 
@@ -318,7 +348,7 @@ void Cellular::initModem()
     {
         modem.simUnlock(simPin.c_str());
     }
-
+    // setFunctionality(4);
     connected = setupNetwork();
 }
 
@@ -427,6 +457,26 @@ void Cellular::disableGPS()
 // Set up the network mode for LTE/GSM
 bool Cellular::setupNetwork()
 {
+    /**
+ *
+ * 2 – Automatic
+13 – GSM Only
+14 – WCDMA Only
+38 – LTE Only
+59 – TDS-CDMA Only
+9 – CDMA Only
+10 – EVDO Only
+19 – GSM+WCDMA Only
+22 – CDMA+EVDO Only
+48 – Any but LTE
+60 – GSM+TDSCDMA Only
+63 – GSM+WCDMA+TDSCDMA Only
+67 – CDMA+EVDO+GSM+WCDMA+TDSCDMA Only
+39 – GSM+WCDMA+LTE Only
+51 – GSM+LTE Only
+54 – WCDMA+LTE Only
+ *
+ */
     return modem.setNetworkMode(2); // Automatic mode (GSM and LTE)
 }
 

@@ -203,6 +203,15 @@ ConnectionClass ConnectionManager::getClass()
     return ConnectionClass::NONE;
 }
 
+bool ConnectionManager::powerSave(bool on)
+{
+    if (currentConnection)
+    {
+        return currentConnection->powerSave(on);
+    }
+    return false;
+}
+
 bool ConnectionManager::getTime(struct tm &timeinfo, float &timezone)
 {
     if (currentConnection)

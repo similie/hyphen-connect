@@ -4,7 +4,7 @@
 #define SerialMon Serial
 #define SerialAT Serial1
 #include <TinyGsmClient.h>
-#define DUMP_AT_COMMANDS 0
+// #define DUMP_AT_COMMANDS 0
 #ifdef DUMP_AT_COMMANDS
 #include <StreamDebugger.h>
 #endif
@@ -63,6 +63,8 @@ public:
     bool setSimPin(const char *);
     bool setApn(const char *);
     bool reload();
+    bool setFunctionality(int);
+    bool powerSave(bool);
 
 private:
 #ifdef DUMP_AT_COMMANDS

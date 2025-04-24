@@ -15,6 +15,11 @@ bool WiFiConnection::getTime(struct tm &timeinfo, float &timezone)
     return false;
 }
 
+bool WiFiConnection::powerSave(bool on)
+{
+    return true;
+}
+
 // Add a new network and save to preferences
 bool WiFiConnection::addNetwork(const char *ssid, const char *password)
 {

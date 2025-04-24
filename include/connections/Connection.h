@@ -37,6 +37,7 @@ public:
     virtual bool init() = 0;
     virtual ConnectionClass getClass() = 0;
     virtual bool getTime(struct tm &, float &) = 0;
+    virtual bool powerSave(bool) = 0;
     // Virtual Destructor
     virtual Connection &connection();
     virtual ~Connection() {}

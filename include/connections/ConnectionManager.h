@@ -46,6 +46,7 @@ public:
     bool updateApn(const char *);
     bool updateSimPin(const char *);
     bool addWifiNetwork(const char *, const char *);
+    bool powerSave(bool);
 };
 
 #endif // CONNECTIONMANAGER_H

@@ -40,6 +40,7 @@ public:
     Connection &connection() override { return *this; }
     ConnectionClass getClass() { return ConnectionClass::WIFI; }
     bool getTime(struct tm &, float &) override;
+    bool powerSave(bool);
 };
 
 #endif // ESP32WIFI_H

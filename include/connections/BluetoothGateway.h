@@ -24,7 +24,7 @@ public:
     void maintain() override;
     Client *getClient() override; // Return nullptr since Bluetooth doesn't use a WiFi client
     ConnectionClass getClass() { return ConnectionClass::BLUETOOTH; }
-
+    bool powerSave(bool) { return true; };
     // Additional methods to handle data exchange
     void sendConfigData(const String &configData);
     String receiveData();
