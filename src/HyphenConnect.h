@@ -2,6 +2,12 @@
 #ifndef __hyphen_connect_h
 #define __hyphen_connect_h
 
+#include <functional>
+#include <Arduino.h>
+#include "Managers.h"
+#include "Connections.h"
+#include "Processors.h"
+
 #ifndef CELLULAR_APN
 #define CELLULAR_APN "similie" // Your APN
 #endif
@@ -66,40 +72,81 @@
 #define MQTT_TOPIC_BASE "HY/" // the base topic for the mqtt messages. This is used to filter messages
 #endif
 
-#include "Managers.h"
-#include "Connections.h"
-#include "Processors.h"
+#ifdef HYPHEN_THREADED
+#include "HyphenRunner.h"
+#endif
 
 class HyphenConnect
 {
-private:
-    ConnectionManager connection;
-    SecureMQTTProcessor processor;
-    SubscriptionManager manager;
-    bool initialSetup = false;
-    LoggingManager logger;
+    // allow runner to touch private members:
+    friend class HyphenRunner;
 
 public:
-    HyphenConnect();
-    HyphenConnect(ConnectionType);
-    bool setup();
-    bool setup(int);
+    HyphenConnect(ConnectionType mode = ConnectionType::CELLULAR_ONLY);
+
+    // your public API unchanged
+    bool setup(int logLevel = LOG_LEVEL_SILENT);
     void loop();
-    bool subscribe(const char *, std::function<void(const char *, const char *)>);
-    bool publishTopic(String, String);
+    bool subscribe(const char *t, std::function<void(const char *, const char *)> cb);
+    bool publishTopic(const String &topic, const String &payload);
+    void function(const char *name, std::function<int(const char *)> fn);
+    void variable(const char *name, int *v);
+    void variable(const char *name, long *v);
+    void variable(const char *name, String *v);
+    void variable(const char *name, double *v);
     bool isConnected();
     void disconnect();
-    void variable(const char *, int *);
-    void variable(const char *, long *);
-    void variable(const char *, String *);
-    void variable(const char *, double *);
-    void function(const char *, std::function<int(const char *)>);
-    
+
+    // accessors
     Client &getClient();
     ConnectionClass getConnectionClass();
     Connection &getConnection();
     SubscriptionManager &getSubscriptionManager();
     ConnectionManager &getConnectionManager();
+
+private:
+    ConnectionManager connection;
+    SecureMQTTProcessor processor;
+    SubscriptionManager manager;
+    LoggingManager logger;
+    bool initialSetup = false;
+
+#ifdef HYPHEN_THREADED
+    HyphenRunner &runner;
+#endif
 };
 
-#endif
+#endif // __HYPHEN_CONNECT_H
+       // class HyphenConnect
+       // {
+       // private:
+       //     ConnectionManager connection;
+       //     SecureMQTTProcessor processor;
+       //     SubscriptionManager manager;
+       //     bool initialSetup = false;
+       //     LoggingManager logger;
+
+// public:
+//     HyphenConnect();
+//     HyphenConnect(ConnectionType);
+//     bool setup();
+//     bool setup(int);
+//     void loop();
+//     bool subscribe(const char *, std::function<void(const char *, const char *)>);
+//     bool publishTopic(String, String);
+//     bool isConnected();
+//     void disconnect();
+//     void variable(const char *, int *);
+//     void variable(const char *, long *);
+//     void variable(const char *, String *);
+//     void variable(const char *, double *);
+//     void function(const char *, std::function<int(const char *)>);
+
+//     Client &getClient();
+//     ConnectionClass getConnectionClass();
+//     Connection &getConnection();
+//     SubscriptionManager &getSubscriptionManager();
+//     ConnectionManager &getConnectionManager();
+// };
+
+// #endif

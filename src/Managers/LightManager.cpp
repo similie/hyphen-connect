@@ -1,28 +1,32 @@
+// File: LightManager.cpp
+
 #include "managers/LightManager.h"
 
+// Constructor: configure the PWM channel
 LightManager::LightManager()
 {
-    // Configure PWM
     ledcSetup(pwmChannel, pwmFrequency, pwmResolution);
     ledcAttachPin(LED_PIN, pwmChannel);
 }
 
+// Fade in/out over 8 ms per step
 void LightManager::pinLoop()
 {
     // Fade in
-    for (int dutyCycle = 0; dutyCycle <= 255; dutyCycle++)
+    for (int duty = 0; duty <= 255; ++duty)
     {
-        ledcWrite(pwmChannel, dutyCycle);
-        vTaskDelay(8); // Adjust to control the speed of fading
+        ledcWrite(pwmChannel, duty);
+        vTaskDelay(pdMS_TO_TICKS(8));
     }
     // Fade out
-    for (int dutyCycle = 255; dutyCycle >= 0; dutyCycle--)
+    for (int duty = 255; duty >= 0; --duty)
     {
-        ledcWrite(pwmChannel, dutyCycle);
-        vTaskDelay(8);
+        ledcWrite(pwmChannel, duty);
+        vTaskDelay(pdMS_TO_TICKS(8));
     }
 }
 
+// Toggle between off & bright
 void LightManager::flash()
 {
     if (flashOn)
@@ -33,91 +37,119 @@ void LightManager::flash()
     {
         bright();
     }
-
     flashOn = !flashOn;
 }
 
+// Task to run a timed flash loop
 void LightManager::runFlash(void *param)
 {
-    LightManager *light = static_cast<LightManager *>(param);
+    auto *light = static_cast<LightManager *>(param);
     unsigned long start = millis();
 
     while (true)
     {
         light->flash();
-        if (light->flashDuration != -1 && millis() - start > light->flashDuration)
+        if (light->flashDuration >= 0 &&
+            millis() - start > (unsigned long)light->flashDuration)
         {
             light->endFlash();
             break;
         }
-        vTaskDelay(100);
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 
+// Task to run continuous breathing (flash + endless fade)
 void LightManager::runBreathing(void *param)
 {
-    LightManager *light = static_cast<LightManager *>(param);
+    auto *light = static_cast<LightManager *>(param);
+    // first a 3 s flash to indicate start
     light->flashDuration = 3000;
-    LightManager::runFlash(param);
+    runFlash(param);
     light->flashDuration = -1;
+    // then endless fade in/out
     while (true)
     {
         light->pinLoop();
     }
 }
 
+// Start the breathing effect on core 1 at prio tskIDLE+1
 void LightManager::startBreathing()
 {
-    if (breathHandle != NULL)
-    {
-        return;
-    }
+    if (breathHandle)
+        return; // already running
 
-    xTaskCreatePinnedToCore(runBreathing, "RunBreathingTask", 4096, this, 1, &breathHandle, 1);
+    xTaskCreatePinnedToCore(
+        runBreathing,
+        "RunBreathingTask",
+        4096,
+        this,
+        tskIDLE_PRIORITY + 1, // below your network runner
+        &breathHandle,
+        1 // core 1
+    );
 }
+
+// Stop breathing and leave a 3 s flash
 void LightManager::endBreathing()
 {
-    if (breathHandle == NULL)
-    {
+    if (!breathHandle)
         return;
-    }
+
     vTaskDelete(breathHandle);
-    breathHandle = NULL;
-    // flashFor(3000);
+    breathHandle = nullptr;
+    flashFor(3000);
 }
 
+// Turn LED fully on
 void LightManager::bright()
 {
     ledcWrite(pwmChannel, 255);
 }
+
+// Half brightness
 void LightManager::dim()
 {
     ledcWrite(pwmChannel, 128);
 }
+
+// Turn LED off
 void LightManager::off()
 {
     ledcWrite(pwmChannel, 0);
 }
 
+// Start a flashing task on core 1 at prio tskIDLE+1
 void LightManager::startFlash()
 {
-    if (flashHandle != NULL)
-    {
-        return;
-    }
-    xTaskCreatePinnedToCore(runFlash, "RunFlashingTask", 4096, this, 1, &flashHandle, 1);
+    if (flashHandle)
+        return; // already running
+
+    xTaskCreatePinnedToCore(
+        runFlash,
+        "RunFlashingTask",
+        4096,
+        this,
+        tskIDLE_PRIORITY + 1,
+        &flashHandle,
+        1 // core 1
+    );
 }
+
+// Stop flashing and restore steady bright
 void LightManager::endFlash()
 {
-    if (flashHandle == NULL)
-    {
+    if (!flashHandle)
         return;
-    }
+
     vTaskDelete(flashHandle);
-    flashHandle = NULL;
+    flashHandle = nullptr;
     flashDuration = -1;
     bright();
 }
+
+// Flash for a finite duration (ms)
 void LightManager::flashFor(long durationMs)
 {
     flashDuration = durationMs;

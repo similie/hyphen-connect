@@ -254,7 +254,7 @@ bool Cellular::powerSave(bool on)
 
 bool Cellular::setFunctionality(int func)
 {
-    String cmd = String("+FUN=") + String(func);
+    String cmd = String("+CFUN=") + String(func);
     Log.noticeln("Configuring Functionality context: %s", cmd.c_str());
     modem.sendAT(cmd.c_str());
     if (modem.waitResponse(5000L, "OK") != 1)
@@ -273,19 +273,12 @@ bool Cellular::on()
     SerialAT.begin(UART_BAUD, SERIAL_8N1, CELLULAR_PIN_RX, CELLULAR_PIN_TX);
     initModem();
     delay(1000L);
-    // String cmd = String("+FUN=0");
-    // Log.noticeln("Configuring SSL context: %s", cmd.c_str());
-    // modem.sendAT(cmd.c_str());
-    // if (modem.waitResponse(5000L, "OK") != 1)
-    // {
-    //     Log.errorln("Failed to function mode");
-    // }
-
     return connected;
 }
 
 void Cellular::terminateThreads()
 {
+#ifndef HYPHEN_THREADED
     if (keepAliveHandle != NULL)
     {
         Log.noticeln("Deleting keepAlive task...");
@@ -301,6 +294,7 @@ void Cellular::terminateThreads()
     }
 
     delay(100); // Give time for task cleanup
+#endif
 }
 
 // Turn off the modem
@@ -369,19 +363,14 @@ void Cellular::maintain()
     {
         return;
     }
-    bool connection = isConnected();
-    if (connection && connected)
-    {
-        return;
-    }
-    connected = false;
+    connected = isConnected();
 }
 
 // Connect to the network
 bool Cellular::connect()
 {
     terminateThreads();
-    if (!modem.waitForNetwork())
+    if (!modem.waitForNetwork(20000L))
     {
         Log.errorln("Network connection failed.");
         return false;
@@ -408,7 +397,7 @@ bool Cellular::clearCredentials()
 // Check network connection status
 bool Cellular::isConnected()
 {
-    return connected && modem.isNetworkConnected();
+    return modem.isNetworkConnected();
 }
 
 // Get the active SIM type
@@ -426,12 +415,14 @@ void Cellular::setActiveSim(SimType simType)
 // Keep the cellular connection alive using FreeRTOS
 bool Cellular::keepAlive(uint8_t seconds)
 {
+#ifndef HYPHEN_THREADED
     // Create a FreeRTOS task for keep-alive functionality
     keepAliveInterval = seconds; // Set the interval delay
     if (keepAliveHandle == NULL)
     {
         xTaskCreatePinnedToCore(keepAliveTask, "KeepAliveTask", 4096, this, 1, &keepAliveHandle, 1);
     }
+#endif
     return true;
 }
 
@@ -477,7 +468,7 @@ bool Cellular::setupNetwork()
 54 – WCDMA+LTE Only
  *
  */
-    return modem.setNetworkMode(2); // Automatic mode (GSM and LTE)
+    return modem.setNetworkMode(NETWORK_MODE); // Automatic mode (GSM and LTE)
 }
 
 inline String Cellular::getModemInfo()

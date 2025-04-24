@@ -1,31 +1,49 @@
-#include <Arduino.h>
+// File: LightManager.h
 
 #ifndef LIGHT_MANAGER_H
 #define LIGHT_MANAGER_H
 
+#include <Arduino.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+
 class LightManager
 {
 private:
-    const u_int8_t pwmChannel = 0;       // PWM channel
-    const u_int16_t pwmFrequency = 5000; // PWM frequency in Hz
-    const u_int8_t pwmResolution = 8;
-    TaskHandle_t breathHandle = NULL; // PWM resolution (8 bits: 0-255)
-    TaskHandle_t flashHandle = NULL;
-    void pinLoop();
-    static void runBreathing(void *param);
-    static void runFlash(void *param);
+    // PWM configuration
+    static constexpr uint8_t pwmChannel = 0;
+    static constexpr uint32_t pwmFrequency = 5000;
+    static constexpr uint8_t pwmResolution = 8;
+
+    // FreeRTOS task handles
+    TaskHandle_t breathHandle = nullptr;
+    TaskHandle_t flashHandle = nullptr;
+
+    // Flash control
     long flashDuration = -1;
     bool flashOn = false;
+
+    // Internal LED routines
+    void pinLoop();
     void flash();
+
+    // Task entry points
+    static void runBreathing(void *param);
+    static void runFlash(void *param);
 
 public:
     LightManager();
+
+    // Breathing effect
     void startBreathing();
     void endBreathing();
+
+    // Instant states
     void bright();
     void dim();
     void off();
-    
+
+    // Flash effect
     void startFlash();
     void endFlash();
     void flashFor(long durationMs);

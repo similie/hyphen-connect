@@ -4,18 +4,22 @@
 #define SerialMon Serial
 #define SerialAT Serial1
 #include <TinyGsmClient.h>
-// #define DUMP_AT_COMMANDS 0
+#define DUMP_AT_COMMANDS 0
 #ifdef DUMP_AT_COMMANDS
 #include <StreamDebugger.h>
 #endif
 
 #ifndef cellular_h
 #define cellular_h
-enum class SimType
-{
-    SIM7070,
-    SIM7600
-};
+
+#ifndef NETWORK_MODE
+NETWORK_MODE 2
+#endif
+
+    enum class SimType {
+        SIM7070,
+        SIM7600
+    };
 
 typedef struct
 {

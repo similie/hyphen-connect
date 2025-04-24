@@ -186,11 +186,32 @@ MQTT_DEVICE_PRIVATE_KEY "-----BEGIN RSA PRIVATE KEY-----\nMIIDWTCCAkGgAwIBAgIUI7
 MQTT_CA_CERTIFICATE_NAME "/root-ca.pem"
 MQTT_DEVICE_CERTIFICATE_NAME "/device-cert.pem"
 MQTT_DEVICE_PRIVATE_KEY_NAME="/private-key.pem"
+
+HYPHEN_THREADED // define only if you want to run on Core 1
+NETWORK_MODE 2
+/* SIM7600 Series
+2 – Automatic
+13 – GSM Only
+14 – WCDMA Only
+38 – LTE Only
+59 – TDS-CDMA Only
+9 – CDMA Only
+10 – EVDO Only
+19 – GSM+WCDMA Only
+22 – CDMA+EVDO Only
+48 – Any but LTE
+60 – GSM+TDSCDMA Only
+63 – GSM+WCDMA+TDSCDMA Only
+67 – CDMA+EVDO+GSM+WCDMA+TDSCDMA Only
+39 – GSM+WCDMA+LTE Only
+51 – GSM+LTE Only
+54 – WCDMA+LTE Only
+*/
 ```
 
 ### About Similie
 
-Similie is a technology company based out of Timor-Leste, dedicated to developing innovative solutions that support international development initiatives and climate-change adaption. Our mission is to harness the power of technology to drive positive change and improve lives around the world. With a focus on sustainability, community engagement, and social impact, we strive to create products and services that make a real difference in people's lives.
+[Similie](https://similie.com) is a technology company based out of Timor-Leste, dedicated to developing innovative solutions that support international development initiatives and climate-change adaption. Our mission is to harness the power of technology to drive positive change and improve lives around the world. With a focus on sustainability, community engagement, and social impact, we strive to create products and services that make a real difference in people's lives.
 
 ### Contributions
 
