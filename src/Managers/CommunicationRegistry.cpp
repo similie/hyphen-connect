@@ -123,6 +123,37 @@ bool CommunicationRegistry::registerCallback(const std::string &topic, std::func
     return false; // No empty slots available
 }
 
+bool CommunicationRegistry::unregisterCallback(const std::string &topic)
+{
+    // 1) Find the topic in our flat callbacks[] list
+    int idx = callbackIndex(topic);
+    if (idx < 0)
+    {
+        // nothing to remove
+        return false;
+    }
+
+    // 2) Erase from the map of topic → callback‐array
+    size_t erased = topicCallbacks.erase(topic);
+    if (erased == 0)
+    {
+        // map didn’t contain it
+        return false;
+    }
+
+    // 3) Shift all later entries in the callbacks[] array left by one
+    for (size_t i = idx; i + 1 < callbackCount; ++i)
+    {
+        callbacks[i] = std::move(callbacks[i + 1]);
+    }
+
+    // 4) Clear the now‐unused last slot and decrement count
+    callbacks[callbackCount - 1].clear();
+    --callbackCount;
+
+    return true;
+}
+
 // Triggers all registered callbacks for a specific topic
 void CommunicationRegistry::triggerCallbacks(const std::string &topic, const char *payload)
 {

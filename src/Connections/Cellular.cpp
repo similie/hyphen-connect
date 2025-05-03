@@ -2,9 +2,9 @@
 
 Cellular::Cellular()
 #ifdef DUMP_AT_COMMANDS
-    : debugger(SerialAT, SerialMon), modem(debugger), gsmClient(modem, 0)
+    : debugger(SerialAT, SerialMon), modem(debugger)
 #else
-    : modem(SerialAT), gsmClient(modem, 0)
+    : modem(SerialAT)
 #endif
 {
     activeSim = SimType::SIM7600;
@@ -16,12 +16,23 @@ Cellular::Cellular()
 
 TinyGsm &Cellular::getModem()
 {
+
     return modem;
 }
 
-Client *Cellular::getClient()
+Client &Cellular::getClient()
 {
-    return new TinyGsmClient(modem, 0);
+
+    if (gsmClient == nullptr)
+    {
+        setClient();
+    }
+    return *gsmClient;
+}
+SecureClient &Cellular::secureClient()
+{
+    sslClient.setClient(&getClient());
+    return sslClient;
 }
 
 // Active NTP sync via AT+CNTP
@@ -50,7 +61,7 @@ bool Cellular::syncTimeViaCNTP(float tz)
     }
 
     // Give the modem time to update its internal clock
-    delay(3000);
+    coreDelay(3000);
 
     // Optionally, read the updated time for debugging
     String updatedTime = modem.getGSMDateTime(DATE_TIME);
@@ -161,8 +172,18 @@ int Cellular::getBuildYear()
  */
 GPSData Cellular::getGPSData()
 {
-    enableGPS();
-    delay(300);
+    if (!isConnected())
+    {
+        Log.errorln("Not connected to cellular network.");
+        return {0, 0, 0, 0};
+    }
+
+    if (!enableGPS())
+    {
+        Log.errorln("Failed to enable GPS.");
+        return {0, 0, 0, 0};
+    }
+    coreDelay(300);
     GPSData data = {0, 0, 0, 0};
 
     unsigned long startTime = millis();
@@ -180,20 +201,20 @@ GPSData Cellular::getGPSData()
             }
         }
 
-        delay(1000); // Wait a second before retrying
+        coreDelay(300); // Wait a second before retrying
     }
 
     Log.notice(F("RAW GPS %s" CR), modem.getGPSraw().c_str());
 
-    modem.sendAT("+CGNSINF"); // Query GPS information
+    // modem.sendAT("+CGNSINF"); // Query GPS information
 
-    if (modem.waitResponse(10000L))
-    {
-        String gpsData = modem.stream.readStringUntil('\n');
-        Log.error(F("GPS data not available %s" CR), gpsData.c_str());
-    }
+    // if (modem.waitResponse(10000L))
+    // {
+    //     String gpsData = modem.stream.readStringUntil('\n');
+    //     Log.error(F("GPS data not available %s" CR), gpsData.c_str());
+    // }
     // tick.detach();
-    digitalWrite(LED_PIN, LOW);
+    // digitalWrite(LED_PIN, LOW);
     disableGPS();
     return data;
 }
@@ -202,13 +223,13 @@ GPSData Cellular::getGPSData()
 void Cellular::setupPower()
 {
 
-    delay(10);
+    coreDelay(10);
     // pinMode(CELLULAR_POWER_PIN, OUTPUT);
     digitalWrite(CELLULAR_POWER_PIN, HIGH);
     // this is the action for the SIM7600, other sims may have different power requirements
     // pinMode(CELLULAR_POWER_PIN_AUX, OUTPUT);
     digitalWrite(CELLULAR_POWER_PIN_AUX, HIGH);
-    delay(500);
+    coreDelay(500);
     digitalWrite(CELLULAR_POWER_PIN_AUX, LOW);
     /**
      * @brief You can assign an interrupt
@@ -269,11 +290,8 @@ bool Cellular::setFunctionality(int func)
 bool Cellular::on()
 {
     setupPower();
-    // delay(10000);
     SerialAT.begin(UART_BAUD, SERIAL_8N1, CELLULAR_PIN_RX, CELLULAR_PIN_TX);
-    initModem();
-    delay(1000L);
-    return connected;
+    return initModem();
 }
 
 void Cellular::terminateThreads()
@@ -293,7 +311,7 @@ void Cellular::terminateThreads()
         maintainHandle = NULL;
     }
 
-    delay(100); // Give time for task cleanup
+    coreDelay(100); // Give time for task cleanup
 #endif
 }
 
@@ -309,41 +327,309 @@ bool Cellular::off()
 bool Cellular::reload()
 {
     off();
-    delay(1000);
+    coreDelay(1000);
     return on();
 }
 
-// Initialize the modem
-void Cellular::initModem()
+// Call this after your modem object is initialized but before you try to use it
+bool Cellular::factoryReset()
 {
+
+    // return true;
+    // return true;
+    // 1) Restore defaults in RAM
+    // 1. Deregister and enter airplane mode
+    // modem.sendAT("+COPS=2"); // deregister from network
+    // modem.waitResponse(10000L);
+    // modem.sendAT("+CFUN=0"); // RF off, minimal functionality
+    // modem.waitResponse(2000L);
+
+    // // 2. Clear PDP context definitions (APNs) for contexts 1-3 (add more as needed)
+    // for (int cid = 1; cid <= 3; ++cid)
+    // {
+    //     modem.sendAT(String("+CGDCONT=") + String(cid));
+    //     modem.waitResponse();
+    // }
+    modem.sendAT("+COPS=2"); // deregister from network
+    modem.waitResponse(10000L);
+    // 3. Reset network selection and mode to auto
+    modem.sendAT("+COPS=0"); // auto network selection
+    modem.waitResponse();
+    // modem.sendAT("+CNMP=2"); // auto mode (2G/3G/LTE)
+    // modem.waitResponse();
+    // (AT+CNBP to reset band mask is usually not needed if using AT&F)
+
+    // 4. Load factory defaults and save to NVRAM
+    modem.sendAT("&F"); // factory default profile [oai_citation_attribution:14‡manualslib.com](https://www.manualslib.com/manual/1889278/Simcom-Sim7500-Series.html#:~:text=,value)
+    modem.waitResponse();
+    modem.sendAT("&W"); // save profile to NVRAM [oai_citation_attribution:15‡manualslib.com](https://www.manualslib.com/manual/1889278/Simcom-Sim7500-Series.html#:~:text=%2A%20,The%20User%20Setting%20To%20Me)
+    modem.waitResponse();
+
+    // 5. Reboot the modem to apply changes
+    modem.sendAT("+CFUN=6");         // reboot module [oai_citation_attribution:16‡docs.monogoto.io](https://docs.monogoto.io/getting-started/general-device-configurations/iot-devices/simcom-sim7600g-h#:~:text=Reset%20the%20modem%20to%20its,default%20configuration)
+    modem.waitResponse(5000L, "OK"); // (No waitResponse here because modem will reset immediately)
+    modem.sendAT("+CFUN=1,1");
+    modem.waitResponse(5000L, "OK");
+    // 1) Factory defaults & wipe NV writes
+    // modem.sendAT("&F0"); // AT&F0 → factory AT param defaults
+    // modem.waitResponse(5000L, "OK");
+    // modem.sendAT("&W0"); // AT&W0 → save defaults to NVRAM
+    // modem.waitResponse(5000L, "OK");
+    // modem.sendAT("+CFUN=0");
+    // modem.waitResponse(5000L);
+    // // 2) Drop RF to minimum (kills any network attach)
+    // // modem.sendAT("+CFUN=0");
+    // // if (modem.waitResponse(5000L) != 1)
+    // // {
+    // //     Serial.println("ERROR: AT+CFUN=0 failed");
+    // //     return false;
+    // // }
+
+    // // // deregister & auto-register operator
+    // // modem.sendAT("+COPS=2");
+    // // modem.waitResponse(5000L, "OK");
+    // // modem.sendAT("+COPS=0");
+    // // modem.waitResponse(10000L, "OK");
+    // // 2) Full reset of radio + ME
+    // SerialMon.println("→ rebooting baseband with CFUN=1,1");
+    // modem.sendAT("+CFUN=1,1"); // full-functionality + reset
+    // modem.waitResponse(15000L, "OK");
+    // 4) Wait for the “RDY” prompt on reboot (up to 30 s)
+    // if (modem.waitResponse(30000L, "RDY") != 1)
+    // {
+    //     Serial.println("ERROR: no RDY after reset");
+    //     return false;
+    // }
+    // // 3) WAIT for the "RDY" banner (up to 20s)
+    // {
+    //     unsigned long t0 = millis();
+    //     while (millis() - t0 < 20000)
+    //     {
+    //         if (modem.waitResponse(500L, "RDY") == 1)
+    //         {
+    //             SerialMon.println("RDY received");
+    //             break;
+    //         }
+    //     }
+    // }
+    // delay(1000); // give it a moment
+    coreDelay(2000);
+    // // 4) Now the ME is truly fresh—run your STK / network commands *after* reboot
+    // modem.sendAT("STK=0"); // disable SIM toolkit
+    // modem.waitResponse(5000L, "OK");
+
+    // // pick your RAT (2 = automatic, 38 = LTE only, etc.)
+    // modem.sendAT("+CNMP=39"); // or 0, 13, 38, etc
+    // modem.waitResponse(5000L, "OK");
+
+    // // deregister & auto-register operator
+    // modem.sendAT("+COPS=2");
+    // modem.waitResponse(5000L, "OK");
+    // modem.sendAT("+COPS=0");
+    // modem.waitResponse(10000L, "OK");
+
+    // // 5) re-query SIM & network state
+    // modem.sendAT("CPIN?"); // should be +CPIN: READY
+    // modem.waitResponse(5000L, "+CPIN: READY");
+    // modem.sendAT("+CGREG=1"); // enable GPRS URCs
+    // modem.waitResponse(5000L, "OK");
+
+    // // 6) poll for registration (up to 60s)
+    // {
+    //     unsigned long t0 = millis();
+    //     while (millis() - t0 < 60000)
+    //     {
+    //         modem.sendAT("+CGREG?");
+    //         if (modem.waitResponse(2000L, "+CGREG: 1,1") == 1 ||
+    //             modem.waitResponse(2000L, "+CGREG: 1,5") == 1)
+    //         {
+    //             SerialMon.println("GPRS registered");
+    //             return true;
+    //         }
+    //         coreDelay(1000);
+    //     }
+    // }
+
+    return true;
+    // // 1) Load factory defaults, disable NV writes
+    // // 1) Factory‐defaults (reset all AT‐params)
+    // modem.sendAT("&F0"); // sends “AT&F0”
+    // modem.waitResponse(5000L, "OK");
+
+    // // 2) (Optional) Save profile so that AT&F0 is sticky
+    // modem.sendAT("&W0");
+    // modem.waitResponse(5000L, "OK");
+
+    // // 3) Deregister from any operator
+    // modem.sendAT("+COPS=2");
+    // modem.waitResponse(5000L, "OK");
+
+    // // 4) Re‐enable auto‐PLMN selection
+    // modem.sendAT("+COPS=0");
+    // modem.waitResponse(10000L, "OK");
+
+    // // 5) **Full‐reset the RF and entire module**
+    // //    THIS is the magic you were missing:
+    // modem.sendAT("+CFUN=1,1");        // <fun>=1 full, <rst>=1 reset ME first
+    // modem.waitResponse(15000L, "OK"); // give it up to 15 s to reboot
+
+    // // 6) **Wait for the module’s “RDY” banner** before sending ANY more ATs
+    // //    (the SIM7600 prints “RDY” on UART when it has finished re-booting)
+    // unsigned long start = millis();
+    // while (millis() - start < 20000)
+    // { // wait up to 20 s
+    //     if (modem.waitResponse(500L, "RDY") == 1)
+    //     {
+    //         break;
+    //     }
+    // }
+
+    // 7) Now do your normal init steps (CPIN, CREG, CGDCONT, CGATT, etc.)
+    // modem.sendAT("+CPIN?");
+    // modem.waitResponse(5000L, "+CPIN: READY");
+    // modem.sendAT("+CGREG=1"); // enable URC on GPRS register
+    // modem.waitResponse(2000L, "OK");
+    // modem.sendAT("+CGATT=1"); // attach packet
+    // modem.waitResponse(10000L, "OK");
+    // modem.sendAT("+CGDCONT=1,\"IP\",\"your.apn\"");
+    // modem.waitResponse(5000L, "OK");
+    // modem.sendAT("+CFUN=1");
+    // modem.waitResponse();
+
+    // // 1) Restore built-in defaults (AT&F)
+    // SerialMon.println("Restoring factory defaults with AT&F...");
+
+    // modem.sendAT("&F");
+    // if (modem.waitResponse(10000L, "OK") != 1)
+    // {
+    //     SerialMon.println("AT&F failed");
+    //     return false;
+    // }
+
+    // // 2) Full‐functionality reboot
+    // modem.sendAT("+CFUN=1,1");
+    // if (modem.waitResponse(10000L, "OK") != 1)
+    //     return false;
+
+    // // modem.sendAT("+CFUN=0");
+    // // modem.waitResponse(5000L, "OK");
+    // // modem.sendAT("+CFUN=1");
+    // // if (modem.waitResponse(5000L, "OK") != 1)
+    // //     return false;
+
+    // modem.sendAT("+CPOF");
+    // if (modem.waitResponse(10000L, "OK") != 1)
+    // {
+    //     Serial.println("SHUTTING DOWN MODEM ");
+    // }
+    // // 3) Deregister from any current network
+    // SerialMon.println("AT+COPS=2  → deregister");
+    // modem.sendAT("+COPS=2");
+    // if (modem.waitResponse(5000L, "OK") != 1)
+    // {
+    //     SerialMon.println("⚠ AT+COPS=2 failed");
+    // }
+
+    // // 4) Re-enable automatic network selection
+    // SerialMon.println("AT+COPS=0  → auto-register");
+    // modem.sendAT("+COPS=0");
+    // if (modem.waitResponse(10000L, "OK") != 1)
+    // {
+    //     SerialMon.println("⚠ AT+COPS=0 failed");
+    // }
+
+    // // 2) (Optional) Save these defaults as the new profile (AT&W0)
+    // /SerialMon.println("Saving profile with AT&W0...");
+    // modem.sendAT("&W0");
+    // if (modem.waitResponse(5000L, "OK") != 1)
+    // {
+    //     SerialMon.println("AT&W0 failed");
+    //     // Not fatal—just means defaults won’t persist across power cycles
+    // }
+
+    // // 3) Reboot the module (AT+CRESET)
+    // SerialMon.println("Rebooting module with AT+CRESET...");
+    // modem.sendAT("+CRESET");
+    // if (modem.waitResponse(10000L, "OK") != 1)
+    // {
+    //     SerialMon.println("AT+CRESET failed");
+    //     return false;
+    // }
+
+    // // Give the module time to restart
+    // coreDelay(5000);
+
+    // // 4) Optional sanity check: is the modem alive?
+    // modem.sendAT("AT");
+    // if (modem.waitResponse(15000L, "OK") != 1)
+    // {
+    //     SerialMon.println("Modem did not respond after reset");
+    //     return false;
+    // }
+
+    // SerialMon.println("Factory reset complete.");
+    // return true;
+}
+
+void Cellular::setSimRegistration()
+{
+    modem.sendAT("+CREG=2"); // get unsolicited network-registration events
+    modem.waitResponse();
+    modem.sendAT("+CGREG=2"); // same for GPRS registration
+    modem.waitResponse();
+
+    // now explicitly ask the SIM to PS-attach
+    modem.sendAT("+CGATT=1"); // Packet-domain attach
+    modem.waitResponse(5000); // give it up to 5 s
+}
+
+// Initialize the modem
+bool Cellular::initModem()
+{
+    connectionAttempts++;
+    Log.noticeln("Connection attempt: %d", connectionAttempts);
     unsigned long startTime = millis();
     bool modemReady = false;
     while (millis() - startTime < 60000)
     { // Wait up to 60 seconds
-        if (modem.testAT())
+        Log.noticeln("Waiting for modem to be ready...");
+        if (modem.testAT(1000U))
         { // Check if modem responds
+            Log.noticeln("Modem is ready.");
             modemReady = true;
             break;
         }
-        delay(1000);
+        coreDelay(1000);
     }
 
     if (!modemReady)
     {
-        return;
+
+        return false;
     }
+
+    // Log.noticeln("RESETTING TH EMODEL %s", String(modemReady ? "TRUE" : "FALSE"));
+    if (modemReady && connectionAttempts >= maxConnectionAttempts && factoryReset())
+    {
+        connectionAttempts = 0;
+        Log.noticeln("RESTORING MODEM FACTORY DEFAULT");
+        // return false;
+    }
+    coreDelay(500);
+    // coreDelay(1000);
 
     if (!modem.init())
     {
         Log.errorln("Failed to initialize modem.");
-        return;
+        return false;
     }
+
     if (modem.getSimStatus() != SimStatus::SIM_READY && simPin)
     {
         modem.simUnlock(simPin.c_str());
     }
-    // setFunctionality(4);
-    connected = setupNetwork();
+
+    return setupNetwork();
 }
 
 bool Cellular::setSimPin(const char *sPin)
@@ -357,26 +643,73 @@ bool Cellular::setApn(const char *setApn)
     return reload();
 }
 
-void Cellular::maintain()
+bool Cellular::maintain()
 {
-    if (!connected)
+    modem.maintain();
+    return isConnected();
+}
+void Cellular::setClient()
+{
+    if (gsmClient != nullptr)
     {
         return;
     }
-    connected = isConnected();
+    gsmClient = new TinyGsmClient(modem, CELLULAR_CID);
 }
 
+void Cellular::restore()
+{
+    sslClient.stop();
+    gsmClient->flush();
+    gsmClient->stop();
+    gsmClient = nullptr;
+    setClient();
+    sslClient.setClient(&getClient());
+}
 // Connect to the network
 bool Cellular::connect()
 {
-    terminateThreads();
+    terminateThreads(); // 20000L
     if (!modem.waitForNetwork(20000L))
     {
+
+        // setSimRegistration();
         Log.errorln("Network connection failed.");
         return false;
     }
 
-    connected = modem.gprsConnect(apn.c_str(), gprsUser, gprsPass);
+    if (!modem.gprsConnect(apn.c_str(), gprsUser, gprsPass))
+    {
+        return false;
+    }
+
+    gsmClient = nullptr;
+    uint8_t count = 0;
+    const uint8_t maxRetries = 10;
+    connected = false;
+    while (!connected && count < maxRetries)
+    {
+        connected = modem.isNetworkConnected();
+        if (count > 0 && !connected)
+        {
+            Log.errorln("Network connection failed. Retrying...");
+        }
+        coreDelay(1000);
+        count++;
+    }
+
+    if (connected)
+    {
+
+        Log.noticeln("Network connected. %s", String(connected ? "true" : "false").c_str());
+        setClient();
+        connectionAttempts = 0;
+    }
+    // else if (modem.factoryDefault())
+    // {
+    //     Serial.println("RESTORING MODEM FACTORY DEFAULT");
+    // }
+
     return connected;
 }
 
@@ -427,22 +760,16 @@ bool Cellular::keepAlive(uint8_t seconds)
 }
 
 // Enable GPS functionality
-void Cellular::enableGPS()
+bool Cellular::enableGPS()
 {
-
-    modem.sendAT("+CGNSPWR=1");
-    if (modem.waitResponse(20000L) != 1)
-    {
-        Log.errorln("Failed to enable GNSS power");
-    }
-    modem.enableGPS();
+    return modem.enableGPS();
 }
 
 // Disable GPS functionality
-void Cellular::disableGPS()
+bool Cellular::disableGPS()
 {
-    modem.sendAT("+CGNSPWR=0");
-    modem.disableGPS();
+    // modem.sendAT("+CGNSPWR=0");
+    return modem.disableGPS();
 }
 
 // Set up the network mode for LTE/GSM

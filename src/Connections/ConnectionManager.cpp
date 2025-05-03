@@ -28,6 +28,16 @@ ConnectionManager::~ConnectionManager()
     disconnect();
 }
 
+void ConnectionManager::restore()
+{
+    if (!currentConnection)
+    {
+        return;
+    }
+
+    return currentConnection->restore();
+}
+
 void ConnectionManager::setCellular()
 {
     connections.push_back(make_unique<Cellular>());
@@ -47,7 +57,8 @@ void ConnectionManager::setWiFi()
 
 bool ConnectionManager::attemptConnection(Connection &conn)
 {
-    if (conn.init() && conn.connect())
+
+    if (conn.init() && conn.isConnected())
     {
         currentConnection = &conn;
         return true;
@@ -57,52 +68,44 @@ bool ConnectionManager::attemptConnection(Connection &conn)
 
 bool ConnectionManager::init()
 {
+    coreDelay(5000);
+    Log.noticeln("Initializing connections...");
     // Initialize all connections
     currentConnection = nullptr;
-    for (auto &conn : connections)
-    {
-        if (!conn->init())
-        {
-            Log.errorln(
-                "Failed to initialize connection. Powering off and trying next connection...");
-            conn->off();
-            delay(5000);
-        }
-        else
-        {
-            Log.noticeln("Successfully Established Connection");
-            currentConnection = conn.get();
-            return true;
-        }
-    }
-    return false;
+    return connect();
 }
 
 bool ConnectionManager::connect()
 {
 
-    if (currentConnection && currentConnection->isConnected())
+    Log.noticeln("Attempting to connect via connection manager...");
+    if (currentConnection != nullptr && currentConnection->isConnected())
     {
         return true;
     }
-    else if (currentConnection && !currentConnection->isConnected())
+    else if (currentConnection != nullptr && !currentConnection->isConnected())
     {
-        if (currentConnection->connect())
+        Log.noticeln("Current connection is not connected. Attempting to reconnect...");
+        currentConnection->disconnect();
+        currentConnection->off(); // Power off the current connection
+        if (currentConnection->init())
         {
+            Log.noticeln("Re-initialized current connection.");
             return true;
         }
+        disconnect();
+        coreDelay(5000);
     }
-
+    Log.warningln("Failed to connect. Attempting all connections...");
     for (auto &conn : connections)
     {
-        if (currentConnection)
-        {
-            disconnect();
-        }
-        if (attemptConnection(*conn))
+        if (attemptConnection(*conn.get()))
         {
             return true;
         }
+        conn->off();
+        coreDelay(5000);
+        Log.errorln("Failed to connect. Powering off and trying next connection...");
     }
     return false;
 }
@@ -164,25 +167,31 @@ bool ConnectionManager::reconnect()
     return connect();
 }
 
-void ConnectionManager::maintain()
+bool ConnectionManager::maintain()
 {
     if (currentConnection && currentConnection->isConnected())
     {
-        currentConnection->maintain();
+        return currentConnection->maintain();
     }
     else
     {
-        reconnect();
+        return reconnect();
     }
 }
 
-Client *ConnectionManager::getClient()
+Client &ConnectionManager::getClient()
 {
     if (currentConnection)
     {
         return currentConnection->getClient();
     }
-    return nullptr;
+    static NoOpClient dummy;
+    return dummy;
+}
+
+SecureClient &ConnectionManager::secureClient()
+{
+    return currentConnection->secureClient();
 }
 
 Connection &ConnectionManager::connection()
@@ -240,7 +249,11 @@ Connection &ConnectionManager::getConnection(ConnectionClass findConnection)
     static Cellular dummy;
     return dummy;
 }
-
+GPSData ConnectionManager::getLocation()
+{
+    Cellular &cellConn = (Cellular &)getConnection(ConnectionClass::CELLULAR);
+    return cellConn.getGPSData();
+}
 bool ConnectionManager::updateApn(const char *apn)
 {
     Cellular &cellConn = (Cellular &)getConnection(ConnectionClass::CELLULAR);

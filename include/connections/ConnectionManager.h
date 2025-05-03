@@ -28,7 +28,7 @@ private:
 public:
     ConnectionManager(ConnectionType type);
     ~ConnectionManager();
-
+    void restore() override;
     bool init() override;
     bool connect() override;
     void disconnect() override;
@@ -36,10 +36,12 @@ public:
     bool on() override;
     bool off() override;
     bool keepAlive(uint8_t maxRetries) override;
-    void maintain() override;
-    Client *getClient() override;
+    bool maintain() override;
+    Client &getClient() override;
+    SecureClient &secureClient() override;
     Connection &connection() override;
     ConnectionClass getClass() override;
+    GPSData getLocation();
     bool getTime(struct tm &, float &) override;
 
     Connection &getConnection(ConnectionClass);

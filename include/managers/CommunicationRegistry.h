@@ -17,6 +17,7 @@ public:
     static CommunicationRegistry &getInstance();
     // Method to register a callback for a specific topic
     bool registerCallback(const std::string &topic, std::function<void(const char *, const char *)> callback);
+    bool unregisterCallback(const std::string &topic);
     // Method to trigger all callbacks for a specific topic
     void triggerCallbacks(const std::string &topic, const char *payload);
     bool hasCallback(const std::string &topic);

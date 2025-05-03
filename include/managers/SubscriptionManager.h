@@ -6,7 +6,7 @@
 #include <unordered_map>
 #include <array>
 #include "Ticker.h"
-
+#include "managers/CoreDelay.h"
 #ifndef REGISTRATION_WAIT_TIME_IN_SECONDS
 #define REGISTRATION_WAIT_TIME_IN_SECONDS 20 // 5 minutes
 #endif
@@ -61,6 +61,7 @@ class SubscriptionManager
 public:
     SubscriptionManager(Processor &);
     bool subscribe(const char *topic, std::function<void(const char *, const char *)> callback);
+    bool unsubscribe(const char *topic);
     void function(const char *topic, std::function<int(const char *)> callback);
     // void variable();
     void loop();
@@ -73,8 +74,7 @@ public:
     void variable(const char *name, double *var);
     String runFunction(const char *, const char *);
     String runVariable(const char *, const char *);
-    
-    
+
     // Hy/Post/Function/<DeviceID>/<FunctionID>/<CallID>
     // Hy/Post/Function/Result/<DeviceID>/<FunctionID>/<CallID>/
     // Hy/Post/Function/Register/<DeviceID>

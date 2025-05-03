@@ -122,7 +122,7 @@ bool WiFiConnection::connect()
         // Wait up to 10 seconds for connection
         while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 10000)
         {
-            delay(100);
+            coreDelay(100);
         }
 
         if (WiFi.status() == WL_CONNECTED)
@@ -136,7 +136,7 @@ bool WiFiConnection::connect()
             Log.notice(F("Failed to connect to %s" CR), networks[i].ssid);
         }
     }
-    delay(10000);
+    coreDelay(10000);
     connected = false;
     return false; // Return false if no network could be connected to
 }
@@ -180,23 +180,30 @@ bool WiFiConnection::keepAlive(uint8_t maxRetries)
         while (!connect() && attempts < maxRetries)
         {
             attempts++;
-            delay(1000); // Retry delay
+            coreDelay(1000); // Retry delay
         }
     }
     return isConnected();
 }
 
 // Maintain the connection (reconnect if disconnected)
-void WiFiConnection::maintain()
+bool WiFiConnection::maintain()
 {
     if (!isConnected())
     {
-        connect();
+        return connect();
     }
+
+    return true;
 }
 
 // Return a pointer to the WiFi client
-Client *WiFiConnection::getClient()
+Client &WiFiConnection::getClient()
 {
-    return &client;
+    return client;
+}
+
+SecureClient &WiFiConnection::secureClient()
+{
+    return sslClient;
 }

@@ -14,6 +14,7 @@ public:
     virtual void loop() = 0;
     virtual bool publish(const char *topic, const char *payload) = 0;
     virtual bool subscribe(const char *topic, std::function<void(const char *, const char *)> callback) = 0;
+    virtual bool unsubscribe(const char *topic) = 0;
 };
 
 #endif

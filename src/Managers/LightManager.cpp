@@ -5,20 +5,20 @@
 // Constructor: configure the PWM channel
 LightManager::LightManager()
 {
+    // pinMode(LED_PIN, OUTPUT);
     ledcSetup(pwmChannel, pwmFrequency, pwmResolution);
     ledcAttachPin(LED_PIN, pwmChannel);
+    off(); // Start with LED off
 }
 
 // Fade in/out over 8 ms per step
 void LightManager::pinLoop()
 {
-    // Fade in
     for (int duty = 0; duty <= 255; ++duty)
     {
         ledcWrite(pwmChannel, duty);
         vTaskDelay(pdMS_TO_TICKS(8));
     }
-    // Fade out
     for (int duty = 255; duty >= 0; --duty)
     {
         ledcWrite(pwmChannel, duty);
@@ -40,116 +40,135 @@ void LightManager::flash()
     flashOn = !flashOn;
 }
 
+void LightManager::processFlash(long durationMs)
+{
+    unsigned long start = millis();
+    while (true)
+    {
+        flash();
+        if (durationMs >= 0 &&
+            millis() - start > (unsigned long)durationMs)
+        {
+            break;
+        }
+        coreDelay(100);
+    }
+}
+
 // Task to run a timed flash loop
 void LightManager::runFlash(void *param)
 {
-    auto *light = static_cast<LightManager *>(param);
+    LightManager *light = static_cast<LightManager *>(param);
     unsigned long start = millis();
-
-    while (true)
-    {
-        light->flash();
-        if (light->flashDuration >= 0 &&
-            millis() - start > (unsigned long)light->flashDuration)
-        {
-            light->endFlash();
-            break;
-        }
-        vTaskDelay(pdMS_TO_TICKS(100));
-    }
+    light->processFlash(light->flashDuration);
+    light->bright();
+    vTaskDelete(NULL);
+    light->flashHandle = nullptr;
+    light->flashDuration = -1;
 }
 
 // Task to run continuous breathing (flash + endless fade)
 void LightManager::runBreathing(void *param)
 {
-    auto *light = static_cast<LightManager *>(param);
-    // first a 3 s flash to indicate start
-    light->flashDuration = 3000;
-    runFlash(param);
-    light->flashDuration = -1;
-    // then endless fade in/out
-    while (true)
+
+    LightManager *light = static_cast<LightManager *>(param);
+    light->stopBreathing = false; // clear any old request
+    light->flashDuration = -1;    // infinite flash
+
+    // first run a timed flash
+    light->processFlash(3000);
+    // now continuous breathing until asked to stop
+    while (!light->stopBreathing)
     {
         light->pinLoop();
     }
+
+    // cleanup: clear the handle so others know we’re gone
+    light->breathHandle = nullptr;
+    light->processFlash(3000);
+    // make sure LED ends off (or at bright)
+    light->off();
+    // now delete *this* task
+    vTaskDelete(NULL);
 }
 
 // Start the breathing effect on core 1 at prio tskIDLE+1
 void LightManager::startBreathing()
 {
-    if (breathHandle)
-        return; // already running
+    if (breathHandle != nullptr)
+        return;
 
     xTaskCreatePinnedToCore(
         runBreathing,
         "RunBreathingTask",
-        4096,
+        4096, // increased stack to 4 KB to prevent overflow
         this,
-        tskIDLE_PRIORITY + 1, // below your network runner
+        tskIDLE_PRIORITY + 1,
         &breathHandle,
-        1 // core 1
-    );
+        0);
 }
 
-// Stop breathing and leave a 3 s flash
 void LightManager::endBreathing()
 {
-    if (!breathHandle)
-        return;
+    // if (breathHandle == nullptr)
+    //     return;
 
-    vTaskDelete(breathHandle);
-    breathHandle = nullptr;
-    flashFor(3000);
+    // vTaskDelete(breathHandle);
+    // breathHandle = nullptr;
+    // flashFor(3000);
+    // coreDelay(5000);
+    // off();
+    if (breathHandle == nullptr)
+        return;
+    // signal the running task to stop itself
+    stopBreathing = true;
+    // then return immediately; breathing task will clean up
 }
 
-// Turn LED fully on
 void LightManager::bright()
 {
     ledcWrite(pwmChannel, 255);
 }
 
-// Half brightness
 void LightManager::dim()
 {
     ledcWrite(pwmChannel, 128);
 }
 
-// Turn LED off
 void LightManager::off()
 {
     ledcWrite(pwmChannel, 0);
+    // coreDelay(100);
+    // digitalWrite(LED_PIN, LOW);
 }
 
 // Start a flashing task on core 1 at prio tskIDLE+1
 void LightManager::startFlash()
 {
     if (flashHandle)
-        return; // already running
-
+        return;
+    flashHandle = nullptr; // cleared in runFlash
     xTaskCreatePinnedToCore(
         runFlash,
         "RunFlashingTask",
-        4096,
+        4096, // 4 KB stack for flash task
         this,
         tskIDLE_PRIORITY + 1,
         &flashHandle,
-        1 // core 1
-    );
+        0);
 }
 
-// Stop flashing and restore steady bright
 void LightManager::endFlash()
 {
-    if (!flashHandle)
+    if (flashHandle == nullptr)
         return;
 
-    vTaskDelete(flashHandle);
+    vTaskDelete(NULL);
     flashHandle = nullptr;
     flashDuration = -1;
     bright();
 }
 
-// Flash for a finite duration (ms)
 void LightManager::flashFor(long durationMs)
 {
     flashDuration = durationMs;

@@ -6,7 +6,7 @@
 #include <Arduino.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
-
+#include "CoreDelay.h"
 class LightManager
 {
 private:
@@ -18,7 +18,8 @@ private:
     // FreeRTOS task handles
     TaskHandle_t breathHandle = nullptr;
     TaskHandle_t flashHandle = nullptr;
-
+    volatile bool stopBreathing = false;
+    void processFlash(long);
     // Flash control
     long flashDuration = -1;
     bool flashOn = false;

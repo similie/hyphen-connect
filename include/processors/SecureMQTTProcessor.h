@@ -7,7 +7,7 @@
 #include "connections/Connection.h"
 #include "Managers.h"
 #include "Processor.h"
-
+#include "mbedtls/platform.h"
 #ifndef MQTT_KEEP_ALIVE_INTERVAL
 #define MQTT_KEEP_ALIVE_INTERVAL 30 // seconds
 #endif
@@ -37,8 +37,9 @@ public:
     bool connect();
     void disconnect();
     bool isConnected();
-    bool publish(const char *topic, const char *payload);
-    bool subscribe(const char *topic, std::function<void(const char *, const char *)> callback);
+    bool publish(const char *, const char *);
+    bool subscribe(const char *, std::function<void(const char *, const char *)>);
+    bool unsubscribe(const char *);
     bool init();
     void loop();
 
@@ -51,16 +52,18 @@ private:
         DeviceCertificate,
         DevicePrivateKey
     };
-    void reconnect();
-    bool hardDisconnect();
+    bool reconnect();
+    // bool hardDisconnect();
     bool attachClients();
     bool attachServer();
     bool attachCertificates();
+    bool initialized = false;
+    bool MQTTConnected = false;
+    bool reconnectingEvent = false;
     FileManager fm;
     LightManager light;
     TaskHandle_t maintainConnectHandle = NULL;
     uint8_t connectCount = 0;
-    const uint8_t HARD_CONNECTION_RESTART = 10;
     unsigned long lastInActivity = 0;
     const uint8_t KEEP_ALIVE = MQTT_KEEP_ALIVE_INTERVAL;                                               // Keep-alive interval in seconds
     const unsigned int KEEP_ALIVE_INTERVAL = KEEP_ALIVE * MQTT_KEEP_ALIVE_INTERVAL_LOOP_OFFSET * 1000; // Keep-alive interval in seconds
@@ -69,7 +72,10 @@ private:
     const uint8_t MAX_CONNECTION_ATTEMPTS = 5;
     Connection &connection;
     PubSubClient mqttClient;
-    SSLClientESP32 sslClient;
+    SecureClient *secureClient = nullptr;
+    // bool restartConnection();
+    void cleanupDisconnect();
+    void restartSSL();
     void mqttCallback(char *topic, byte *payload, unsigned int length);
     bool setupSecureConnection();
     bool loadCertificates();
@@ -77,6 +83,7 @@ private:
     int hasSubscription();
     void subscribeToTopics();
     bool subscribeToTopic(const char *topic);
+    bool unsubscribeToTopic(const char *topic);
     static void maintenanceCallback(SecureMQTTProcessor *instance);
 };
 

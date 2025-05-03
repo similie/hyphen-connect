@@ -11,7 +11,7 @@ bool SubscriptionManager::init()
     {
         return false;
     }
-    delay(10000);
+    coreDelay(10000);
     Log.notice(F("Subscription Manager initialized %s" CR), functionTopic.c_str());
     processor.subscribe(functionTopic.c_str(), [this](const char *topic, const char *payload)
                         { functionalCallback(topic, payload); });
@@ -26,6 +26,11 @@ bool SubscriptionManager::init()
 bool SubscriptionManager::subscribe(const char *topic, std::function<void(const char *, const char *)> callback)
 {
     return processor.subscribe(topic, callback);
+}
+
+bool SubscriptionManager::unsubscribe(const char *topic)
+{
+    return processor.unsubscribe(topic);
 }
 
 void SubscriptionManager::registerFunctions()
@@ -198,11 +203,7 @@ void SubscriptionManager::variable(const char *name, double *var)
 
 bool SubscriptionManager::publishTopic(String topic, String payload)
 {
-    if (!processor.isConnected())
-    {
-        return false;
-    }
-    Serial.printf("Publishing to %s: %s\n", topic.c_str(), payload.c_str());
+    Log.noticeln("Publishing to %s: %s", topic.c_str(), payload.c_str());
     return processor.publish(topic.c_str(), payload.c_str());
 }
 
