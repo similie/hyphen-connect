@@ -5,13 +5,14 @@
 #include <unordered_map>
 #include <functional>
 #include <array>
-
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
 class CommunicationRegistry
 {
 
 public:
     // Delete copy constructor and assignment operator to prevent copying
-    static const size_t CALLBACK_SIZE = 20;
+    static const size_t CALLBACK_SIZE = 30;
     CommunicationRegistry(const CommunicationRegistry &) = delete;
     CommunicationRegistry &operator=(const CommunicationRegistry &) = delete;
     static CommunicationRegistry &getInstance();
@@ -26,6 +27,7 @@ public:
     void iterateCallbacks(std::function<void(const char *)> callback);
 
 private:
+    SemaphoreHandle_t _mutex;
     static CommunicationRegistry instance;
     // std::function<void(char *, byte *, unsigned int)> mqttCallbackFunction;
     std::array<std::string, CALLBACK_SIZE> callbacks;

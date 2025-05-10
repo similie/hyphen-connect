@@ -90,7 +90,7 @@ public:
 
     bool setup(int logLevel = LOG_LEVEL_SILENT);
     void loop();
-
+    bool ready();
     // These just forward directly to manager
     bool subscribe(const char *topic, std::function<void(const char *, const char *)> cb);
     bool unsubscribe(const char *topic);
@@ -102,6 +102,9 @@ public:
     void variable(const char *name, double *v);
     bool isConnected();
     void disconnect();
+    bool connectionOn();
+    bool connectionOff();
+    bool isOnline() { return connectedOn; };
     Client &getClient();
     ConnectionClass getConnectionClass();
     Connection &getConnection();
@@ -114,6 +117,7 @@ private:
     SecureMQTTProcessor processor;
     SubscriptionManager manager;
     LoggingManager logger;
+    bool connectedOn = false;
     bool initialSetup = false;
     int loggingLevel = 0;
 #ifdef HYPHEN_THREADED
@@ -127,53 +131,3 @@ private:
 };
 
 #endif
-
-// class HyphenConnect
-// {
-// #ifdef HYPHEN_THREADED
-//     // allow runner to touch private members:
-//     friend class HyphenRunner;
-// #endif
-// public:
-//     HyphenConnect(ConnectionType mode = ConnectionType::CELLULAR_ONLY);
-//     // your public API unchanged
-//     bool setup(int logLevel = LOG_LEVEL_SILENT);
-//     void loop();
-//     bool subscribe(const char *t, std::function<void(const char *, const char *)> cb);
-//     bool unsubscribe(const char *topic);
-//     bool publishTopic(const String &topic, const String &payload);
-//     void function(const char *name, std::function<int(const char *)> fn);
-//     void variable(const char *name, int *v);
-//     void variable(const char *name, long *v);
-//     void variable(const char *name, String *v);
-//     void variable(const char *name, double *v);
-//     bool isConnected();
-//     void disconnect();
-
-//     // accessors
-//     Client &getClient();
-//     ConnectionClass getConnectionClass();
-//     Connection &getConnection();
-//     SubscriptionManager &getSubscriptionManager();
-//     ConnectionManager &getConnectionManager();
-//     void printCore1StackUsage();
-
-// private:
-//     ConnectionManager connection;
-//     SecureMQTTProcessor processor;
-//     SubscriptionManager manager;
-//     LoggingManager logger;
-//     bool initialSetup = false;
-//     int loggingLevel = 0;
-
-// #ifdef HYPHEN_THREADED
-//     bool rebuildingThread = false;
-//     unsigned long threadCheck = 0;
-//     const unsigned long THREAD_CHECK_INTERVAL = 10000 * 6; // 10 seconds
-//     bool threadCheckReady();
-//     HyphenRunner &runner = HyphenRunner::get();
-//     void rebuildThread();
-// #endif
-// };
-
-// #endif

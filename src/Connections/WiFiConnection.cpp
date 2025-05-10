@@ -115,13 +115,14 @@ bool WiFiConnection::connect()
     Log.notice(F("We have these networks %d" CR), networkCount);
     for (int i = 0; i < networkCount; i++)
     {
-        Log.notice(F("Connecting to %s" CR), networks[i].ssid);
+        Log.notice(F("Connecting to %s %s" CR), networks[i].ssid, networks[i].password);
 
         WiFi.begin(networks[i].ssid, networks[i].password);
         unsigned long startAttemptTime = millis();
         // Wait up to 10 seconds for connection
         while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 10000)
         {
+            // Serial.print(".");
             coreDelay(100);
         }
 
@@ -136,7 +137,7 @@ bool WiFiConnection::connect()
             Log.notice(F("Failed to connect to %s" CR), networks[i].ssid);
         }
     }
-    coreDelay(10000);
+    coreDelay(1000);
     connected = false;
     return false; // Return false if no network could be connected to
 }

@@ -5,3 +5,4 @@ partitions.csv
 data
 .DS_Store
 src/main.cpp
+CMakeLists.txt

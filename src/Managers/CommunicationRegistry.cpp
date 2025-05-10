@@ -2,6 +2,7 @@
 
 CommunicationRegistry::CommunicationRegistry()
 {
+    _mutex = xSemaphoreCreateMutex();
 }
 
 const std::array<std::string, CommunicationRegistry::CALLBACK_SIZE> &CommunicationRegistry::getCallbacks()
@@ -126,9 +127,15 @@ bool CommunicationRegistry::registerCallback(const std::string &topic, std::func
 bool CommunicationRegistry::unregisterCallback(const std::string &topic)
 {
     // 1) Find the topic in our flat callbacks[] list
-    int idx = callbackIndex(topic);
-    if (idx < 0)
+    if (xSemaphoreTake(_mutex, portMAX_DELAY) != pdTRUE)
     {
+        return false;
+    }
+    int idx = callbackIndex(topic);
+    Serial.printf("Unregistering callback for topic: %s, index: %d\n", topic.c_str(), idx);
+    if (idx < 0 || static_cast<size_t>(idx) >= callbackCount)
+    {
+        xSemaphoreGive(_mutex);
         // nothing to remove
         return false;
     }
@@ -141,16 +148,25 @@ bool CommunicationRegistry::unregisterCallback(const std::string &topic)
         return false;
     }
 
+    size_t i = idx;
     // 3) Shift all later entries in the callbacks[] array left by one
-    for (size_t i = idx; i + 1 < callbackCount; ++i)
+    for (i; i + 1 < callbackCount; i++)
     {
+        if (callbacks[i + 1].empty())
+        {
+            // no more entries to shift
+            break;
+        }
         callbacks[i] = std::move(callbacks[i + 1]);
     }
 
-    // 4) Clear the now‐unused last slot and decrement count
-    callbacks[callbackCount - 1].clear();
-    --callbackCount;
+    if (i + 1 < callbackCount && !callbacks[i + 1].empty())
+    {
+        callbacks[i + 1].clear();
+    }
 
+    --callbackCount;
+    xSemaphoreGive(_mutex);
     return true;
 }
 
@@ -158,6 +174,11 @@ bool CommunicationRegistry::unregisterCallback(const std::string &topic)
 void CommunicationRegistry::triggerCallbacks(const std::string &topic, const char *payload)
 {
     int index = callbackIndex(topic);
+    if (index < 0 || static_cast<size_t>(index) >= callbackCount)
+    {
+        Log.notice(F("No callbacks match topic: %s" CR), topic.c_str());
+        return;
+    }
     const std::string searchTopic = callbacks[index];
     auto it = topicCallbacks.find(searchTopic);
     // If there are registered callbacks for this topic, execute them

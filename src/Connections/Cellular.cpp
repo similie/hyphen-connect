@@ -27,10 +27,12 @@ Client &Cellular::getClient()
     {
         setClient();
     }
+    // gsmClient->init(&modem, 0);
     return *gsmClient;
 }
 SecureClient &Cellular::secureClient()
 {
+
     sslClient.setClient(&getClient());
     return sslClient;
 }
@@ -205,16 +207,6 @@ GPSData Cellular::getGPSData()
     }
 
     Log.notice(F("RAW GPS %s" CR), modem.getGPSraw().c_str());
-
-    // modem.sendAT("+CGNSINF"); // Query GPS information
-
-    // if (modem.waitResponse(10000L))
-    // {
-    //     String gpsData = modem.stream.readStringUntil('\n');
-    //     Log.error(F("GPS data not available %s" CR), gpsData.c_str());
-    // }
-    // tick.detach();
-    // digitalWrite(LED_PIN, LOW);
     disableGPS();
     return data;
 }
@@ -331,25 +323,12 @@ bool Cellular::reload()
     return on();
 }
 
-// Call this after your modem object is initialized but before you try to use it
+/*
+ * Conceptual. It hasn't yet proven to be useful.
+ */
 bool Cellular::factoryReset()
 {
 
-    // return true;
-    // return true;
-    // 1) Restore defaults in RAM
-    // 1. Deregister and enter airplane mode
-    // modem.sendAT("+COPS=2"); // deregister from network
-    // modem.waitResponse(10000L);
-    // modem.sendAT("+CFUN=0"); // RF off, minimal functionality
-    // modem.waitResponse(2000L);
-
-    // // 2. Clear PDP context definitions (APNs) for contexts 1-3 (add more as needed)
-    // for (int cid = 1; cid <= 3; ++cid)
-    // {
-    //     modem.sendAT(String("+CGDCONT=") + String(cid));
-    //     modem.waitResponse();
-    // }
     modem.sendAT("+COPS=2"); // deregister from network
     modem.waitResponse(10000L);
     // 3. Reset network selection and mode to auto
@@ -358,7 +337,6 @@ bool Cellular::factoryReset()
     // modem.sendAT("+CNMP=2"); // auto mode (2G/3G/LTE)
     // modem.waitResponse();
     // (AT+CNBP to reset band mask is usually not needed if using AT&F)
-
     // 4. Load factory defaults and save to NVRAM
     modem.sendAT("&F"); // factory default profile [oai_citation_attribution:14‡manualslib.com](https://www.manualslib.com/manual/1889278/Simcom-Sim7500-Series.html#:~:text=,value)
     modem.waitResponse();
@@ -370,205 +348,10 @@ bool Cellular::factoryReset()
     modem.waitResponse(5000L, "OK"); // (No waitResponse here because modem will reset immediately)
     modem.sendAT("+CFUN=1,1");
     modem.waitResponse(5000L, "OK");
-    // 1) Factory defaults & wipe NV writes
-    // modem.sendAT("&F0"); // AT&F0 → factory AT param defaults
-    // modem.waitResponse(5000L, "OK");
-    // modem.sendAT("&W0"); // AT&W0 → save defaults to NVRAM
-    // modem.waitResponse(5000L, "OK");
-    // modem.sendAT("+CFUN=0");
-    // modem.waitResponse(5000L);
-    // // 2) Drop RF to minimum (kills any network attach)
-    // // modem.sendAT("+CFUN=0");
-    // // if (modem.waitResponse(5000L) != 1)
-    // // {
-    // //     Serial.println("ERROR: AT+CFUN=0 failed");
-    // //     return false;
-    // // }
 
-    // // // deregister & auto-register operator
-    // // modem.sendAT("+COPS=2");
-    // // modem.waitResponse(5000L, "OK");
-    // // modem.sendAT("+COPS=0");
-    // // modem.waitResponse(10000L, "OK");
-    // // 2) Full reset of radio + ME
-    // SerialMon.println("→ rebooting baseband with CFUN=1,1");
-    // modem.sendAT("+CFUN=1,1"); // full-functionality + reset
-    // modem.waitResponse(15000L, "OK");
-    // 4) Wait for the “RDY” prompt on reboot (up to 30 s)
-    // if (modem.waitResponse(30000L, "RDY") != 1)
-    // {
-    //     Serial.println("ERROR: no RDY after reset");
-    //     return false;
-    // }
-    // // 3) WAIT for the "RDY" banner (up to 20s)
-    // {
-    //     unsigned long t0 = millis();
-    //     while (millis() - t0 < 20000)
-    //     {
-    //         if (modem.waitResponse(500L, "RDY") == 1)
-    //         {
-    //             SerialMon.println("RDY received");
-    //             break;
-    //         }
-    //     }
-    // }
-    // delay(1000); // give it a moment
     coreDelay(2000);
-    // // 4) Now the ME is truly fresh—run your STK / network commands *after* reboot
-    // modem.sendAT("STK=0"); // disable SIM toolkit
-    // modem.waitResponse(5000L, "OK");
-
-    // // pick your RAT (2 = automatic, 38 = LTE only, etc.)
-    // modem.sendAT("+CNMP=39"); // or 0, 13, 38, etc
-    // modem.waitResponse(5000L, "OK");
-
-    // // deregister & auto-register operator
-    // modem.sendAT("+COPS=2");
-    // modem.waitResponse(5000L, "OK");
-    // modem.sendAT("+COPS=0");
-    // modem.waitResponse(10000L, "OK");
-
-    // // 5) re-query SIM & network state
-    // modem.sendAT("CPIN?"); // should be +CPIN: READY
-    // modem.waitResponse(5000L, "+CPIN: READY");
-    // modem.sendAT("+CGREG=1"); // enable GPRS URCs
-    // modem.waitResponse(5000L, "OK");
-
-    // // 6) poll for registration (up to 60s)
-    // {
-    //     unsigned long t0 = millis();
-    //     while (millis() - t0 < 60000)
-    //     {
-    //         modem.sendAT("+CGREG?");
-    //         if (modem.waitResponse(2000L, "+CGREG: 1,1") == 1 ||
-    //             modem.waitResponse(2000L, "+CGREG: 1,5") == 1)
-    //         {
-    //             SerialMon.println("GPRS registered");
-    //             return true;
-    //         }
-    //         coreDelay(1000);
-    //     }
-    // }
 
     return true;
-    // // 1) Load factory defaults, disable NV writes
-    // // 1) Factory‐defaults (reset all AT‐params)
-    // modem.sendAT("&F0"); // sends “AT&F0”
-    // modem.waitResponse(5000L, "OK");
-
-    // // 2) (Optional) Save profile so that AT&F0 is sticky
-    // modem.sendAT("&W0");
-    // modem.waitResponse(5000L, "OK");
-
-    // // 3) Deregister from any operator
-    // modem.sendAT("+COPS=2");
-    // modem.waitResponse(5000L, "OK");
-
-    // // 4) Re‐enable auto‐PLMN selection
-    // modem.sendAT("+COPS=0");
-    // modem.waitResponse(10000L, "OK");
-
-    // // 5) **Full‐reset the RF and entire module**
-    // //    THIS is the magic you were missing:
-    // modem.sendAT("+CFUN=1,1");        // <fun>=1 full, <rst>=1 reset ME first
-    // modem.waitResponse(15000L, "OK"); // give it up to 15 s to reboot
-
-    // // 6) **Wait for the module’s “RDY” banner** before sending ANY more ATs
-    // //    (the SIM7600 prints “RDY” on UART when it has finished re-booting)
-    // unsigned long start = millis();
-    // while (millis() - start < 20000)
-    // { // wait up to 20 s
-    //     if (modem.waitResponse(500L, "RDY") == 1)
-    //     {
-    //         break;
-    //     }
-    // }
-
-    // 7) Now do your normal init steps (CPIN, CREG, CGDCONT, CGATT, etc.)
-    // modem.sendAT("+CPIN?");
-    // modem.waitResponse(5000L, "+CPIN: READY");
-    // modem.sendAT("+CGREG=1"); // enable URC on GPRS register
-    // modem.waitResponse(2000L, "OK");
-    // modem.sendAT("+CGATT=1"); // attach packet
-    // modem.waitResponse(10000L, "OK");
-    // modem.sendAT("+CGDCONT=1,\"IP\",\"your.apn\"");
-    // modem.waitResponse(5000L, "OK");
-    // modem.sendAT("+CFUN=1");
-    // modem.waitResponse();
-
-    // // 1) Restore built-in defaults (AT&F)
-    // SerialMon.println("Restoring factory defaults with AT&F...");
-
-    // modem.sendAT("&F");
-    // if (modem.waitResponse(10000L, "OK") != 1)
-    // {
-    //     SerialMon.println("AT&F failed");
-    //     return false;
-    // }
-
-    // // 2) Full‐functionality reboot
-    // modem.sendAT("+CFUN=1,1");
-    // if (modem.waitResponse(10000L, "OK") != 1)
-    //     return false;
-
-    // // modem.sendAT("+CFUN=0");
-    // // modem.waitResponse(5000L, "OK");
-    // // modem.sendAT("+CFUN=1");
-    // // if (modem.waitResponse(5000L, "OK") != 1)
-    // //     return false;
-
-    // modem.sendAT("+CPOF");
-    // if (modem.waitResponse(10000L, "OK") != 1)
-    // {
-    //     Serial.println("SHUTTING DOWN MODEM ");
-    // }
-    // // 3) Deregister from any current network
-    // SerialMon.println("AT+COPS=2  → deregister");
-    // modem.sendAT("+COPS=2");
-    // if (modem.waitResponse(5000L, "OK") != 1)
-    // {
-    //     SerialMon.println("⚠ AT+COPS=2 failed");
-    // }
-
-    // // 4) Re-enable automatic network selection
-    // SerialMon.println("AT+COPS=0  → auto-register");
-    // modem.sendAT("+COPS=0");
-    // if (modem.waitResponse(10000L, "OK") != 1)
-    // {
-    //     SerialMon.println("⚠ AT+COPS=0 failed");
-    // }
-
-    // // 2) (Optional) Save these defaults as the new profile (AT&W0)
-    // /SerialMon.println("Saving profile with AT&W0...");
-    // modem.sendAT("&W0");
-    // if (modem.waitResponse(5000L, "OK") != 1)
-    // {
-    //     SerialMon.println("AT&W0 failed");
-    //     // Not fatal—just means defaults won’t persist across power cycles
-    // }
-
-    // // 3) Reboot the module (AT+CRESET)
-    // SerialMon.println("Rebooting module with AT+CRESET...");
-    // modem.sendAT("+CRESET");
-    // if (modem.waitResponse(10000L, "OK") != 1)
-    // {
-    //     SerialMon.println("AT+CRESET failed");
-    //     return false;
-    // }
-
-    // // Give the module time to restart
-    // coreDelay(5000);
-
-    // // 4) Optional sanity check: is the modem alive?
-    // modem.sendAT("AT");
-    // if (modem.waitResponse(15000L, "OK") != 1)
-    // {
-    //     SerialMon.println("Modem did not respond after reset");
-    //     return false;
-    // }
-
-    // SerialMon.println("Factory reset complete.");
-    // return true;
 }
 
 void Cellular::setSimRegistration()

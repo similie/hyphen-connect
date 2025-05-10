@@ -72,6 +72,7 @@ public:
     void variable(const char *name, long *var);
     void variable(const char *name, String *var);
     void variable(const char *name, double *var);
+    bool ready();
     String runFunction(const char *, const char *);
     String runVariable(const char *, const char *);
 
@@ -85,6 +86,7 @@ private:
     const String deviceId = String(DEVICE_PUBLIC_ID);
     bool readySend = false;
     bool checkReady = false;
+    bool subscriptionDone = false;
     void setReady();
     void registerFunctions();
     void sendRegistry();

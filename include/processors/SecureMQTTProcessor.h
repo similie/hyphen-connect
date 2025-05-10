@@ -41,7 +41,9 @@ public:
     bool subscribe(const char *, std::function<void(const char *, const char *)>);
     bool unsubscribe(const char *);
     bool init();
+    void maintain();
     void loop();
+    bool ready();
 
 private:
     String certificates[CERT_LENGTH];
@@ -59,12 +61,12 @@ private:
     bool attachCertificates();
     bool initialized = false;
     bool MQTTConnected = false;
-    bool reconnectingEvent = false;
+    // bool reconnectingEvent = false;
     FileManager fm;
     LightManager light;
     TaskHandle_t maintainConnectHandle = NULL;
     uint8_t connectCount = 0;
-    unsigned long lastInActivity = 0;
+    // unsigned long lastInActivity = 0;
     const uint8_t KEEP_ALIVE = MQTT_KEEP_ALIVE_INTERVAL;                                               // Keep-alive interval in seconds
     const unsigned int KEEP_ALIVE_INTERVAL = KEEP_ALIVE * MQTT_KEEP_ALIVE_INTERVAL_LOOP_OFFSET * 1000; // Keep-alive interval in seconds
     const char *CLIENT_ID = DEVICE_PUBLIC_ID;
@@ -72,8 +74,14 @@ private:
     const uint8_t MAX_CONNECTION_ATTEMPTS = 5;
     Connection &connection;
     PubSubClient mqttClient;
+#ifndef INSECURE_MQTT
     SecureClient *secureClient = nullptr;
+#else
+    Client *client = nullptr;
+#endif
     // bool restartConnection();
+
+    // bool runMaintance = 0;
     void cleanupDisconnect();
     void restartSSL();
     void mqttCallback(char *topic, byte *payload, unsigned int length);
@@ -84,7 +92,20 @@ private:
     void subscribeToTopics();
     bool subscribeToTopic(const char *topic);
     bool unsubscribeToTopic(const char *topic);
+    void runMaintenance();
+    void threadConnectionMaintenance();
     static void maintenanceCallback(SecureMQTTProcessor *instance);
+    static void threadConnectionMaintenance(void *pv);
+    void toggleMaintenance();
+    bool isMaintenanceRunning = false;
+    // bool maintaining = false;
+    Ticker _keepAliveTicker;
+    TaskHandle_t maintenceHandle = nullptr;
+    esp_timer_handle_t _maintenanceTimer;
+    void stopMaintenaceTicker();
+    void setMaintenaceTicker();
+    template <class TArg>
+    void attach(unsigned long seconds, void (*callback)(TArg), TArg arg);
 };
 
 #endif

@@ -6,6 +6,7 @@ SubscriptionManager::SubscriptionManager(Processor &processor) : processor(proce
 
 bool SubscriptionManager::init()
 {
+    subscriptionDone = false;
     bool init = processor.init();
     if (!init)
     {
@@ -21,6 +22,11 @@ bool SubscriptionManager::init()
 
     registerFunctions();
     return init;
+}
+
+bool SubscriptionManager::ready()
+{
+    return subscriptionDone;
 }
 
 bool SubscriptionManager::subscribe(const char *topic, std::function<void(const char *, const char *)> callback)
@@ -232,6 +238,7 @@ void SubscriptionManager::sendRegistry()
         return Log.errorln("Failed to publish registry");
     }
     tick.detach();
+    subscriptionDone = true;
 }
 
 void SubscriptionManager::loop()
