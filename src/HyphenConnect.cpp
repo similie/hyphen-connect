@@ -27,27 +27,20 @@ bool HyphenConnect::connectionOff()
 
 bool HyphenConnect::setup(int logLevel)
 {
-
     loggingLevel = logLevel;
-
     if (!initialSetup)
     {
         logger.start(logLevel);
         initialSetup = true;
-#ifdef HYPHEN_THREADED
-        // Launch runner task once
-        return connectionOn();
-#endif
-    }
-    else
-    {
-#ifdef HYPHEN_THREADED
-        // Tell the runner to perform manager.init()
-        return runner.initRequested();
-#endif
     }
 
+#ifdef HYPHEN_THREADED
+    // Tell the runner to perform manager.init()
+    return connectionOn();
+#endif
+
 #ifndef HYPHEN_THREADED
+    connectedOn = true;
     return manager.init();
 #endif
 }
@@ -66,18 +59,7 @@ void HyphenConnect::loop()
     }
 #ifdef HYPHEN_THREADED
     // Runner task is driving manager.loop() on core 0
-
-    // Periodically verify the runner is still alive
-    if (!threadCheckReady())
-    {
-        return;
-    }
-    Log.noticeln("Thread check");
-    if (!runner.isAlive())
-    {
-        Log.errorln("Runner task is not alive. Restarting...");
-        rebuildThread();
-    }
+    runner.loop();
 #else
     // Single-threaded: we must call the loop ourselves
     manager.loop();
@@ -105,6 +87,15 @@ bool HyphenConnect::publishTopic(const String &topic,
     return manager.publishTopic(topic, payload);
 }
 
+bool HyphenConnect::publishTopic(const char *topic, uint8_t *buf, size_t length)
+{
+    if (!connectedOn)
+    {
+        return false;
+    }
+    return manager.publishTopic(topic, buf, length);
+}
+
 void HyphenConnect::function(const char *name,
                              std::function<int(const char *)> fn)
 {
@@ -124,11 +115,6 @@ void HyphenConnect::variable(const char *name, double *v) { manager.variable(nam
 bool HyphenConnect::isConnected()
 {
     return manager.isConnected();
-    // #ifdef HYPHEN_THREADED
-    //     return manager.isConnected();
-    // #else
-    //     return manager.isConnected();
-    // #endif
 }
 
 void HyphenConnect::disconnect()
@@ -139,6 +125,7 @@ void HyphenConnect::disconnect()
 #endif
     processor.disconnect();
     connection.disconnect();
+    connectedOn = false;
 }
 
 Client &HyphenConnect::getClient() { return connection.getClient(); }
@@ -157,24 +144,5 @@ bool HyphenConnect::threadCheckReady()
     }
     threadCheck = now;
     return true;
-}
-
-void HyphenConnect::rebuildThread()
-{
-    rebuildingThread = true;
-
-    // First, take everything down
-    processor.disconnect();
-    connection.disconnect();
-    connection.off();
-    delay(300);
-    runner.stop();
-
-    // Then bring it back up
-    connection.on();
-    runner.begin(this);
-    Log.infoln("Runner task restarted.");
-
-    rebuildingThread = false;
 }
 #endif

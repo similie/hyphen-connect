@@ -7,7 +7,13 @@
 #include "connections/Connection.h"
 #include "Managers.h"
 #include "Processor.h"
+#include <freertos/semphr.h>
+// #define free esp_mbedtls_mem_free
+
 #include "mbedtls/platform.h"
+
+#include <ArduinoJson.h>
+
 #ifndef MQTT_KEEP_ALIVE_INTERVAL
 #define MQTT_KEEP_ALIVE_INTERVAL 30 // seconds
 #endif
@@ -38,6 +44,7 @@ public:
     void disconnect();
     bool isConnected();
     bool publish(const char *, const char *);
+    bool publish(const char *topic, uint8_t *, size_t);
     bool subscribe(const char *, std::function<void(const char *, const char *)>);
     bool unsubscribe(const char *);
     bool init();
@@ -46,6 +53,18 @@ public:
     bool ready();
 
 private:
+    // Recursive-mutex guard
+    volatile bool processing = false;
+    struct Lock
+    {
+        Lock() { xSemaphoreTakeRecursive(mutex(), portMAX_DELAY); }
+        ~Lock() { xSemaphoreGiveRecursive(mutex()); }
+        static SemaphoreHandle_t &mutex()
+        {
+            static SemaphoreHandle_t m = xSemaphoreCreateRecursiveMutex();
+            return m;
+        }
+    };
     String certificates[CERT_LENGTH];
     bool certsCached = false;
     enum cachedCertificates
@@ -55,18 +74,15 @@ private:
         DevicePrivateKey
     };
     bool reconnect();
-    // bool hardDisconnect();
     bool attachClients();
     bool attachServer();
     bool attachCertificates();
     bool initialized = false;
     bool MQTTConnected = false;
-    // bool reconnectingEvent = false;
     FileManager fm;
     LightManager light;
     TaskHandle_t maintainConnectHandle = NULL;
     uint8_t connectCount = 0;
-    // unsigned long lastInActivity = 0;
     const uint8_t KEEP_ALIVE = MQTT_KEEP_ALIVE_INTERVAL;                                               // Keep-alive interval in seconds
     const unsigned int KEEP_ALIVE_INTERVAL = KEEP_ALIVE * MQTT_KEEP_ALIVE_INTERVAL_LOOP_OFFSET * 1000; // Keep-alive interval in seconds
     const char *CLIENT_ID = DEVICE_PUBLIC_ID;
@@ -79,11 +95,8 @@ private:
 #else
     Client *client = nullptr;
 #endif
-    // bool restartConnection();
-
-    // bool runMaintance = 0;
+    void stop();
     void cleanupDisconnect();
-    void restartSSL();
     void mqttCallback(char *topic, byte *payload, unsigned int length);
     bool setupSecureConnection();
     bool loadCertificates();
@@ -93,17 +106,15 @@ private:
     bool subscribeToTopic(const char *topic);
     bool unsubscribeToTopic(const char *topic);
     void runMaintenance();
-    void threadConnectionMaintenance();
-    static void maintenanceCallback(SecureMQTTProcessor *instance);
-    static void threadConnectionMaintenance(void *pv);
     void toggleMaintenance();
     bool isMaintenanceRunning = false;
-    // bool maintaining = false;
+    const size_t restorationAttempts = 5;
     Ticker _keepAliveTicker;
     TaskHandle_t maintenceHandle = nullptr;
     esp_timer_handle_t _maintenanceTimer;
-    void stopMaintenaceTicker();
-    void setMaintenaceTicker();
+    void stopMaintenceTicker();
+    void setMaintenceTicker();
+    void resetMaintenceTicker();
     template <class TArg>
     void attach(unsigned long seconds, void (*callback)(TArg), TArg arg);
 };

@@ -1,10 +1,8 @@
 #include "processors/SecureMQTTProcessor.h"
-extern "C" void *esp_mbedtls_psram_calloc(size_t n, size_t s);
 
 SecureMQTTProcessor::SecureMQTTProcessor(Connection &connection)
     : connection(connection)
 {
-    mbedtls_platform_set_calloc_free(esp_mbedtls_psram_calloc, free);
 }
 
 /**
@@ -14,23 +12,25 @@ SecureMQTTProcessor::SecureMQTTProcessor(Connection &connection)
  */
 bool SecureMQTTProcessor::init()
 {
+    Lock l;
     initialized = false;
     if (!connection.isConnected())
     {
         return false;
     }
     // wait a tick for the network to be ready
-
     return connectServer();
 }
 
 bool SecureMQTTProcessor::ready()
 {
+    Lock l;
     return initialized && isConnected();
 }
 
 bool SecureMQTTProcessor::attachClients()
 {
+    Lock l;
 #ifndef INSECURE_MQTT
     secureClient = &connection.secureClient();
     if (secureClient == nullptr)
@@ -52,13 +52,13 @@ bool SecureMQTTProcessor::attachClients()
         return false;
     }
 #endif
-    // secureClient->verify(MQTT_IOT_ENDPOINT, MQTT_IOT_PORT);
     return true;
 }
 
 bool SecureMQTTProcessor::attachServer()
 
 {
+    Lock l;
 #ifndef INSECURE_MQTT
     if (secureClient == nullptr)
     {
@@ -72,7 +72,6 @@ bool SecureMQTTProcessor::attachServer()
         return false;
     }
 #endif
-    // sslClient.validate(MQTT_IOT_ENDPOINT, MQTT_IOT_PORT);
     mqttClient
         .setServer(MQTT_IOT_ENDPOINT, MQTT_IOT_PORT)
 #ifndef INSECURE_MQTT
@@ -81,8 +80,10 @@ bool SecureMQTTProcessor::attachServer()
         .setClient(*client)
 #endif
         .setKeepAlive(KEEP_ALIVE)
+
         .setCallback([this](char *topic, byte *payload, unsigned int length)
                      { mqttCallback(topic, payload, length); });
+    ;
     return true;
 }
 
@@ -93,11 +94,7 @@ bool SecureMQTTProcessor::attachServer()
  */
 bool SecureMQTTProcessor::connectServer()
 {
-    // if (!connection.isConnected())
-    // {
-    //     Log.errorln("Network connection is not established.");
-    //     return false;
-    // }
+    Lock l;
     Log.noticeln("Connecting to MQTT server...");
     if (!attachClients())
     {
@@ -121,75 +118,50 @@ bool SecureMQTTProcessor::connectServer()
  */
 bool SecureMQTTProcessor::keepAliveReady()
 {
-    // if (millis() - lastInActivity > KEEP_ALIVE_INTERVAL && !reconnectingEvent)
-    // {
-    //     lastInActivity = millis();
-    //     return true;
-    // }
+    Lock l;
     return isMaintenanceRunning;
 }
 
 void SecureMQTTProcessor::cleanupDisconnect()
 {
+    Lock l;
     Log.errorln("Connection is not established.");
-    if (!MQTTConnected)
+    if (MQTTConnected)
     {
-        // reconnectingEvent = false;
-        return;
+        stop();
     }
-    disconnect();
-    // maintain();
-    threadConnectionMaintenance();
-    // lastInActivity = millis();
-    // reconnectingEvent = false;
+    connection.maintain();
 }
 
 void SecureMQTTProcessor::runMaintenance()
 {
-    Serial.println("Running maintenance... " + String(MQTTConnected) + " " + String(ready()));
-    // if (reconnectingEvent)
-    // {
-    //     return;
-    // }
-    Log.noticeln("Keep alive check");
-    // reconnectingEvent = true;
+    Lock l;
+    Log.noticeln("Running maintenance... %s %s", String(MQTTConnected), String(ready()));
     isMaintenanceRunning = false;
     // maintain the connection
     if (!connection.isConnected())
     {
         return cleanupDisconnect();
     }
-
-    connection.maintain();
-    // maintain();
-    // threadConnectionMaintenance();
-    // check if the connection is still alive
     MQTTConnected = mqttClient.connected();
     Log.noticeln("MQTT CONNECTION STATUS %s", String(MQTTConnected));
-
+    connection.maintain();
     if (MQTTConnected)
     {
-        // lastInActivity = millis();
-        // reconnectingEvent = false;
         return;
     }
-    // block the attemps in a multithreaded environment
-    // reconnectingEvent = true;
-    // light.endBreathing();
     Log.noticeln("Reconnecting to MQTT...");
     reconnect();
-    // lastInActivity = millis();
-    // reconnectingEvent = false;
 }
 
-void SecureMQTTProcessor::setMaintenaceTicker()
+void SecureMQTTProcessor::setMaintenceTicker()
 {
+    Lock l;
     if (_maintenanceTimer != nullptr)
     {
-        return;
+        return resetMaintenceTicker();
     }
     Log.noticeln("Setting up maintenance ticker...");
-    // In init (after mqtt is up):
     isMaintenanceRunning = false;
     esp_timer_create_args_t args = {
         .callback = [](void *ctx)
@@ -203,8 +175,16 @@ void SecureMQTTProcessor::setMaintenaceTicker()
     esp_timer_start_periodic(_maintenanceTimer, KEEP_ALIVE_INTERVAL * 1000UL);
 }
 
-void SecureMQTTProcessor::stopMaintenaceTicker()
+void SecureMQTTProcessor::resetMaintenceTicker()
 {
+    Lock l;
+    stopMaintenceTicker();
+    setMaintenceTicker();
+}
+
+void SecureMQTTProcessor::stopMaintenceTicker()
+{
+    Lock l;
     if (_maintenanceTimer == nullptr)
     {
         return;
@@ -212,30 +192,7 @@ void SecureMQTTProcessor::stopMaintenaceTicker()
     esp_timer_stop(_maintenanceTimer);
     esp_timer_delete(_maintenanceTimer);
     _maintenanceTimer = nullptr;
-}
-
-void SecureMQTTProcessor::threadConnectionMaintenance(void *pv)
-{
-    static_cast<SecureMQTTProcessor *>(pv)->maintain();
-    vTaskDelete(NULL);
-}
-
-void SecureMQTTProcessor::threadConnectionMaintenance()
-{
-    xTaskCreatePinnedToCore(&SecureMQTTProcessor::threadConnectionMaintenance,
-                            "HyphenMaintenance",
-                            4096 / sizeof(StackType_t),
-                            // allocatedStack / sizeof(StackType_t),
-                            this,
-                            tskIDLE_PRIORITY + 1,
-                            &maintenceHandle,
-                            1);
-}
-
-void SecureMQTTProcessor::maintenanceCallback(SecureMQTTProcessor *instance)
-{
-    SecureMQTTProcessor *processor = static_cast<SecureMQTTProcessor *>(instance);
-    processor->toggleMaintenance();
+    isMaintenanceRunning = false;
 }
 
 void SecureMQTTProcessor::toggleMaintenance()
@@ -246,10 +203,20 @@ void SecureMQTTProcessor::toggleMaintenance()
 
 void SecureMQTTProcessor::maintain()
 {
-    stopMaintenaceTicker();
-    isMaintenanceRunning = false;
-    connection.maintain();
-    setMaintenaceTicker();
+
+    if (processing)
+    {
+        return;
+    }
+    // if we are not connected, we need to reconnect, we will check every n seconds
+    if (!keepAliveReady())
+    {
+        return;
+    }
+    {
+        Lock l;
+        runMaintenance();
+    }
 }
 
 /**
@@ -258,17 +225,17 @@ void SecureMQTTProcessor::maintain()
  */
 void SecureMQTTProcessor::loop()
 {
-    mqttClient.loop();
-    // if we are not connected, we need to reconnect, we will check evern n seconds
-    if (!keepAliveReady())
+    if (processing)
     {
         return;
     }
-    runMaintenance();
+    Lock l;
+    mqttClient.loop();
 }
 
 bool SecureMQTTProcessor::attachCertificates()
 {
+    Lock l;
 #ifndef INSECURE_MQTT
     for (u_int8_t i = 0; i < CERT_LENGTH; i++)
     {
@@ -278,7 +245,6 @@ bool SecureMQTTProcessor::attachCertificates()
             return false;
         }
         const char *certContentC = certificates[i].c_str();
-        // Serial.printf("Attaching certificate %d: %s\n", i, certContentC);
         switch (i)
         {
         case cachedCertificates::CA:
@@ -305,7 +271,7 @@ bool SecureMQTTProcessor::attachCertificates()
  */
 bool SecureMQTTProcessor::loadCertificates()
 {
-
+    Lock l;
     if (certsCached)
     {
         return attachCertificates();
@@ -375,32 +341,11 @@ bool SecureMQTTProcessor::loadCertificates()
  * let's do a hard disconnect and restart the connection
  * @return true if successful, false otherwise
  */
-
-void SecureMQTTProcessor::restartSSL()
-{
-    Log.noticeln("Restarting SSL connection...");
-#ifndef INSECURE_MQTT
-    if (secureClient == nullptr)
-    {
-        Log.noticeln("Secure client is null");
-        return;
-    }
-    // delete secureClient;
-    secureClient = nullptr;
-#else
-    if (client == nullptr)
-    {
-        Log.noticeln("Client is null");
-        return;
-    }
-    // delete client;
-    client = nullptr;
-#endif
-}
-
 bool SecureMQTTProcessor::connect()
 {
+    Lock l;
     connectCount++;
+    setMaintenceTicker();
     return setupSecureConnection();
 }
 
@@ -410,6 +355,7 @@ bool SecureMQTTProcessor::connect()
  */
 bool SecureMQTTProcessor::setupSecureConnection()
 {
+    Lock l;
     Log.notice("Setting up IoT connection... ");
     Log.noticeln(CLIENT_ID);
     uint8_t i = 0;
@@ -447,15 +393,16 @@ bool SecureMQTTProcessor::setupSecureConnection()
     if (i > MAX_CONNECTION_ATTEMPTS && !MQTTConnected)
     {
         // connectCount >= 1
-        if (connectCount >= 1)
+        if (connectCount >= restorationAttempts)
         {
             Log.errorln("Restoring IoT connection.");
+            connectCount = 0;
             connection.restore();
         }
 
         return false;
     }
-    Log.noticeln("Verifing Connection to Secure MQTT Network.");
+    Log.noticeln("Verifying Connection to Secure MQTT Network.");
     // the LED pin will show that the connection is established
     // MQTTConnected = mqttClient.connected();
 
@@ -468,7 +415,7 @@ bool SecureMQTTProcessor::setupSecureConnection()
     }
     Log.noticeln("MQTT initialized");
     initialized = true;
-    setMaintenaceTicker();
+    setMaintenceTicker();
     return MQTTConnected;
 }
 /**
@@ -476,10 +423,20 @@ bool SecureMQTTProcessor::setupSecureConnection()
  */
 bool SecureMQTTProcessor::reconnect()
 {
+    Lock l;
     Log.noticeln("Reconnecting to IoT Core...");
-    disconnect();
+    stop();
     coreDelay(500);
     return init();
+}
+
+void SecureMQTTProcessor::stop()
+{
+    Lock l;
+    Log.noticeln("Disconnecting from MQTT server...");
+    MQTTConnected = false;
+    light.endBreathing();
+    mqttClient.disconnect();
 }
 
 /**
@@ -487,17 +444,9 @@ bool SecureMQTTProcessor::reconnect()
  */
 void SecureMQTTProcessor::disconnect()
 {
-    MQTTConnected = false;
-    initialized = false;
-    light.endBreathing();
-    if (mqttClient.connected())
-    {
-        mqttClient.disconnect();
-    }
-    coreDelay(300);
-    restartSSL();
-    coreDelay(300);
-    Log.noticeln("Disconnecting from MQTT server...");
+    Lock l;
+    stopMaintenceTicker();
+    stop();
 }
 /**
  * @brief checks if the MQTT client is connected
@@ -505,7 +454,7 @@ void SecureMQTTProcessor::disconnect()
  */
 bool SecureMQTTProcessor::isConnected()
 {
-    // return mqttClient.connected();
+    Lock l;
     return mqttClient.connected();
 }
 
@@ -518,12 +467,53 @@ bool SecureMQTTProcessor::isConnected()
  */
 bool SecureMQTTProcessor::publish(const char *topic, const char *payload)
 {
+
     if (!mqttClient.connected())
     {
         Log.errorln("MQTT client is not connected.");
+        // disconnect if we still think we are connected
+        if (MQTTConnected)
+        {
+            stop();
+        }
+
         return false;
     }
-    return mqttClient.publish(topic, payload);
+    processing = true;
+    bool sent = false;
+    {
+        Lock l;
+        sent = mqttClient.publish(topic, payload);
+        processing = false;
+    }
+
+    return sent;
+}
+
+bool SecureMQTTProcessor::publish(const char *topic, uint8_t *buf, size_t length)
+{
+
+    if (!mqttClient.connected())
+    {
+        Log.errorln("MQTT client is not connected.");
+        // disconnect if we still think we are connected
+        if (MQTTConnected)
+        {
+            stop();
+        }
+
+        return false;
+    }
+    processing = true;
+    bool sent = false;
+    {
+        Lock l;
+        Log.noticeln("Publishing to topic: %s", topic);
+        sent = mqttClient.publish(topic, buf, length);
+        processing = false;
+    }
+
+    return sent;
 }
 
 /**
@@ -535,7 +525,11 @@ bool SecureMQTTProcessor::publish(const char *topic, const char *payload)
 bool SecureMQTTProcessor::subscribeToTopic(const char *topic)
 {
     Log.notice(F("SUBSCRIBING TO: %s" CR), topic);
-    return mqttClient.subscribe(topic);
+    Lock l;
+    processing = true;
+    bool subscribed = mqttClient.subscribe(topic);
+    processing = false;
+    return subscribed;
 }
 
 /**
@@ -547,7 +541,11 @@ bool SecureMQTTProcessor::subscribeToTopic(const char *topic)
 bool SecureMQTTProcessor::unsubscribeToTopic(const char *topic)
 {
     Log.notice(F("UNSUBSCRIBING TO: %s" CR), topic);
-    return mqttClient.unsubscribe(topic);
+    Lock l;
+    processing = true;
+    bool unsubscribed = mqttClient.unsubscribe(topic);
+    processing = false;
+    return unsubscribed;
 }
 
 /**
@@ -556,6 +554,7 @@ bool SecureMQTTProcessor::unsubscribeToTopic(const char *topic)
  */
 void SecureMQTTProcessor::subscribeToTopics()
 {
+    Lock l;
     CommunicationRegistry::getInstance().iterateCallbacks([this](const char *topic)
                                                           { subscribeToTopic(topic); });
 }
@@ -569,6 +568,7 @@ void SecureMQTTProcessor::subscribeToTopics()
  */
 bool SecureMQTTProcessor::subscribe(const char *topic, std::function<void(const char *, const char *)> callback)
 {
+    Lock l;
     if (!CommunicationRegistry::getInstance().hasCallback(topic))
     {
         subscribeToTopic(topic);
@@ -579,6 +579,7 @@ bool SecureMQTTProcessor::subscribe(const char *topic, std::function<void(const 
 
 bool SecureMQTTProcessor::unsubscribe(const char *topic)
 {
+    Lock l;
     if (CommunicationRegistry::getInstance().hasCallback(topic))
     {
         CommunicationRegistry::getInstance().unregisterCallback(topic);
@@ -596,6 +597,7 @@ bool SecureMQTTProcessor::unsubscribe(const char *topic)
  */
 void SecureMQTTProcessor::mqttCallback(char *topic, byte *payload, unsigned int length)
 {
+    Lock l;
     String message = "";
     for (unsigned int i = 0; i < length; i++)
     {

@@ -27,7 +27,7 @@ public:
     void iterateCallbacks(std::function<void(const char *)> callback);
 
 private:
-    SemaphoreHandle_t _mutex;
+    // SemaphoreHandle_t _mutex;
     static CommunicationRegistry instance;
     // std::function<void(char *, byte *, unsigned int)> mqttCallbackFunction;
     std::array<std::string, CALLBACK_SIZE> callbacks;

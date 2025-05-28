@@ -7,12 +7,23 @@ SubscriptionManager::SubscriptionManager(Processor &processor) : processor(proce
 bool SubscriptionManager::init()
 {
     subscriptionDone = false;
+    applyRegistration = false;
     bool init = processor.init();
+
     if (!init)
     {
+        Log.errorln("Failed to initialize processor");
         return false;
     }
-    coreDelay(10000);
+
+    buildRegistration();
+    return init;
+}
+
+void SubscriptionManager::runRegistration()
+{
+    applyRegistration = false;
+    tock.detach();
     Log.notice(F("Subscription Manager initialized %s" CR), functionTopic.c_str());
     processor.subscribe(functionTopic.c_str(), [this](const char *topic, const char *payload)
                         { functionalCallback(topic, payload); });
@@ -21,7 +32,21 @@ bool SubscriptionManager::init()
                         { variableCallback(topic, payload); });
 
     registerFunctions();
-    return init;
+}
+
+void SubscriptionManager::buildRegistration()
+{
+    tock.attach(FUNCTION_REGISTRATION_SECONDS, &SubscriptionManager::runRegistrationCallback, this);
+}
+
+void SubscriptionManager::toggleRegistration()
+{
+    applyRegistration = true;
+}
+
+void SubscriptionManager::runRegistrationCallback(SubscriptionManager *instance)
+{
+    static_cast<SubscriptionManager *>(instance)->toggleRegistration();
 }
 
 bool SubscriptionManager::ready()
@@ -46,12 +71,16 @@ void SubscriptionManager::registerFunctions()
 
 void SubscriptionManager::registrationCallback(SubscriptionManager *instance)
 {
-    SubscriptionManager *sub = static_cast<SubscriptionManager *>(instance);
-    sub->setReady();
+    static_cast<SubscriptionManager *>(instance)->setReady();
 }
 
 void SubscriptionManager::setReady()
 {
+    if (!processor.ready())
+    {
+        Log.errorln("Connection not ready");
+        return;
+    }
     checkReady = true;
 }
 
@@ -213,6 +242,12 @@ bool SubscriptionManager::publishTopic(String topic, String payload)
     return processor.publish(topic.c_str(), payload.c_str());
 }
 
+bool SubscriptionManager::publishTopic(const char *topic, uint8_t *buf, size_t length)
+{
+    Log.noticeln("Publishing to %s with length %d", topic, length);
+    return processor.publish(topic, buf, length);
+}
+
 void SubscriptionManager::sendRegistry()
 {
     checkReady = false;
@@ -233,6 +268,7 @@ void SubscriptionManager::sendRegistry()
     }
     String resultStr;
     serializeJson(doc, resultStr);
+    coreDelay(500);
     if (!publishTopic(registrationTopic, resultStr.c_str()))
     {
         return Log.errorln("Failed to publish registry");
@@ -241,12 +277,26 @@ void SubscriptionManager::sendRegistry()
     subscriptionDone = true;
 }
 
+bool SubscriptionManager::registryReady()
+{
+    return functionCount > 0 && checkReady;
+}
+
+void SubscriptionManager::maintain()
+{
+    processor.maintain();
+    if (applyRegistration)
+    {
+        runRegistration();
+    }
+
+    if (registryReady())
+    {
+        sendRegistry();
+    }
+}
+
 void SubscriptionManager::loop()
 {
     processor.loop();
-    if (!functionCount || !checkReady)
-    {
-        return;
-    }
-    sendRegistry();
 }

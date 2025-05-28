@@ -115,14 +115,13 @@ bool WiFiConnection::connect()
     Log.notice(F("We have these networks %d" CR), networkCount);
     for (int i = 0; i < networkCount; i++)
     {
-        Log.notice(F("Connecting to %s %s" CR), networks[i].ssid, networks[i].password);
+        Log.notice(F("Connecting to %s" CR), networks[i].ssid);
 
         WiFi.begin(networks[i].ssid, networks[i].password);
         unsigned long startAttemptTime = millis();
         // Wait up to 10 seconds for connection
         while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 10000)
         {
-            // Serial.print(".");
             coreDelay(100);
         }
 
@@ -137,7 +136,7 @@ bool WiFiConnection::connect()
             Log.notice(F("Failed to connect to %s" CR), networks[i].ssid);
         }
     }
-    coreDelay(1000);
+    coreDelay(10000);
     connected = false;
     return false; // Return false if no network could be connected to
 }
@@ -166,10 +165,33 @@ bool WiFiConnection::on()
 // Power off WiFi
 bool WiFiConnection::off()
 {
+
     WiFi.disconnect(true);
     WiFi.mode(WIFI_OFF);
     connected = false;
     return true;
+}
+
+NetworkInfo WiFiConnection::getNetworkInfo()
+{
+    NetworkInfo info;
+    // Simple string fields
+    info.ssid = WiFi.SSID();
+    info.bssid = WiFi.BSSIDstr();
+    info.rssi = WiFi.RSSI();
+    info.channel = WiFi.channel();
+    WiFi.encryptionType(info.encryption);
+
+    // IP information
+    info.localIP = WiFi.localIP();
+    info.gatewayIP = WiFi.gatewayIP();
+    info.subnetMask = WiFi.subnetMask();
+
+    // DNS (Arduino-ESP32 gives up to two DNS servers)
+    info.dns1 = WiFi.dnsIP(0);
+    info.dns2 = WiFi.dnsIP(1);
+
+    return info;
 }
 
 // Keep the connection alive by reconnecting if disconnected

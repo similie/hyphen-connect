@@ -10,6 +10,10 @@
 #ifndef REGISTRATION_WAIT_TIME_IN_SECONDS
 #define REGISTRATION_WAIT_TIME_IN_SECONDS 20 // 5 minutes
 #endif
+
+#ifndef FUNCTION_REGISTRATION_SECONDS
+#define FUNCTION_REGISTRATION_SECONDS 10 // 5 minutes
+#endif
 // Define custom hash and equal functions for Arduino String
 struct StringHash
 {
@@ -66,7 +70,9 @@ public:
     // void variable();
     void loop();
     bool init();
+    void maintain();
     bool publishTopic(String topic, String payload);
+    bool publishTopic(const char *topic, uint8_t *buf, size_t length);
     bool isConnected();
     void variable(const char *name, int *var);
     void variable(const char *name, long *var);
@@ -83,11 +89,19 @@ public:
 
 private:
     Ticker tick;
+    Ticker tock;
     const String deviceId = String(DEVICE_PUBLIC_ID);
     bool readySend = false;
     bool checkReady = false;
     bool subscriptionDone = false;
+    bool applyRegistration = false;
+
+    void runRegistration();
+    static void runRegistrationCallback(SubscriptionManager *instance);
+    void buildRegistration();
+    void toggleRegistration();
     void setReady();
+    bool registryReady();
     void registerFunctions();
     void sendRegistry();
     String getCallId(const char *);

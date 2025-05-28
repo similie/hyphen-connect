@@ -1,17 +1,18 @@
 
 #include <Ticker.h>
 #include "connections/Connection.h"
-#include "SSLClientESP32.h"
-// #include <ESP_SSLClient.h>
 #define SerialMon Serial
 #define SerialAT Serial1
 #include <TinyGsmClient.h>
 #ifdef DUMP_AT_COMMANDS
 #include <StreamDebugger.h>
 #endif
-
+#include "mbedtls/platform.h"
 #include "mbedtls/ssl.h"          // for mbedtls_ssl_session_reset()
 #include "mbedtls/ssl_internal.h" // for accessing internal structs if needed
+#include <freertos/semphr.h>
+#include "SSLClientESP32.h"
+#define SSLClient SSLClientESP32
 
 #ifndef cellular_h
 #define cellular_h
@@ -33,8 +34,25 @@ typedef struct
     float alt;
 } GPSData;
 
-class CellularSecureClient : public SecureClient, private SSLClientESP32
+class CellularSecureClient : public SecureClient, private SSLClient
 {
+private:
+    bool _stopped = true;
+
+    // RAII helper that takes/releases a recursive mutex
+    struct Lock
+    {
+        Lock() { xSemaphoreTakeRecursive(mutex(), portMAX_DELAY); }
+        ~Lock() { xSemaphoreGiveRecursive(mutex()); }
+    };
+
+    // Singleton recursive mutex for all SSLClient calls
+    static SemaphoreHandle_t &mutex()
+    {
+        static SemaphoreHandle_t m = xSemaphoreCreateRecursiveMutex();
+        return m;
+    }
+
 public:
     CellularSecureClient() = default;
     ~CellularSecureClient() override = default;
@@ -42,70 +60,146 @@ public:
     // Certificate methods
     void setCACert(const char *rootCA) override
     {
-        SSLClientESP32::setCACert(rootCA);
+        Lock l;
+        SSLClient::setCACert(rootCA);
     }
     void setCertificate(const char *clientCert) override
     {
-        SSLClientESP32::setCertificate(clientCert);
+        Lock l;
+        SSLClient::setCertificate(clientCert);
     }
     void setPrivateKey(const char *privateKey) override
     {
-        SSLClientESP32::setPrivateKey(privateKey);
+        Lock l;
+        SSLClient::setPrivateKey(privateKey);
     }
     void setCACertBundle(const uint8_t *bundle) override
     {
-        SSLClientESP32::setCACertBundle(bundle);
+        Lock l;
+        SSLClient::setCACertBundle(bundle);
     }
+
+    // Underlying transport
     void setClient(Client *client) override
     {
-        SSLClientESP32::setClient(client);
+        Lock l;
+        SSLClient::setHandshakeTimeout(10000);
+        SSLClient::setClient(client);
     }
-    // PSK
-    void setPreSharedKey(const char *identity, const char *psk) override
+
+    // PSK / insecure / verify / handshake timeout
+    void setPreSharedKey(const char *id, const char *psk) override
     {
-        SSLClientESP32::setPreSharedKey(identity, psk);
+        Lock l;
+        SSLClient::setPreSharedKey(id, psk);
     }
-    // Insecure mode
     void setInsecure() override
     {
-        SSLClientESP32::setInsecure();
+        Lock l;
+        SSLClient::setInsecure();
     }
-    // Handshake timeout
+    bool verify(const char *fp, const char *host) override
+    {
+        Lock l;
+        return SSLClient::verify(fp, host);
+    }
     void setHandshakeTimeout(unsigned long t) override
     {
-        SSLClientESP32::setHandshakeTimeout(t);
+        Lock l;
+        SSLClient::setHandshakeTimeout(t);
     }
-    // Fingerprint/domain verify
-    bool verify(const char *fingerprint,
-                const char *domainName) override
-    {
-        return SSLClientESP32::verify(fingerprint, domainName);
-    }
-    // Client interface implementation
+
+    // Connect: clears _stopped on success
     int connect(IPAddress ip, uint16_t port) override
     {
-        return SSLClientESP32::connect(ip, port);
+        Lock l;
+        int rc = SSLClient::connect(ip, port);
+        if (rc == 1)
+            _stopped = false;
+        return rc;
     }
     int connect(const char *host, uint16_t port) override
     {
-        return SSLClientESP32::connect(host, port);
+        Lock l;
+        int rc = SSLClient::connect(host, port);
+        if (rc == 1)
+            _stopped = false;
+        return rc;
     }
-    size_t write(uint8_t b) override { return SSLClientESP32::write(b); }
-    size_t write(const uint8_t *buf, size_t size) override
+
+    // Data I/O
+    size_t write(uint8_t b) override
     {
-        return SSLClientESP32::write(buf, size);
+        if (_stopped)
+            return 0;
+        Lock l;
+        return SSLClient::write(b);
     }
-    int available() override { return SSLClientESP32::available(); }
-    int read() override { return SSLClientESP32::read(); }
-    int read(uint8_t *buf, size_t size) override
+    size_t write(const uint8_t *buf, size_t sz) override
     {
-        return SSLClientESP32::read(buf, size);
+        if (_stopped)
+            return 0;
+        Lock l;
+        return SSLClient::write(buf, sz);
     }
-    int peek() override { return SSLClientESP32::peek(); }
-    void flush() override { SSLClientESP32::flush(); }
-    void stop() override { SSLClientESP32::stop(); }
-    uint8_t connected() override { return SSLClientESP32::connected(); }
-    operator bool() override { return SSLClientESP32::operator bool(); }
+    int available() override
+    {
+        if (_stopped)
+            return 0;
+        Lock l;
+        return SSLClient::available();
+    }
+    int read() override
+    {
+        if (_stopped)
+            return -1;
+        Lock l;
+        return SSLClient::read();
+    }
+    int read(uint8_t *buf, size_t sz) override
+    {
+        if (_stopped)
+            return -1;
+        Lock l;
+        return SSLClient::read(buf, sz);
+    }
+    int peek() override
+    {
+        if (_stopped)
+            return -1;
+        Lock l;
+        return SSLClient::peek();
+    }
+    void flush() override
+    {
+        if (_stopped)
+            return;
+        Lock l;
+        SSLClient::flush();
+    }
+
+    // Stop & connected checks
+    void stop() override
+    {
+        Lock l;
+        if (!_stopped)
+        {
+            SSLClient::stop();
+            _stopped = true;
+        }
+    }
+    uint8_t connected() override
+    {
+        if (_stopped)
+            return 0;
+        Lock l;
+        return SSLClient::connected();
+    }
+    operator bool() override
+    {
+        Lock l;
+        return SSLClient::operator bool();
+    }
 };
 
 class Cellular : public Connection
@@ -134,15 +228,15 @@ public:
     Connection &connection() override { return *this; }
     ConnectionClass getClass() { return ConnectionClass::CELLULAR; }
     bool getTime(struct tm &, float &) override;
-    inline String getIMEI();
-    inline String getIMSI();
-    inline String getLocalIP();
-    inline String getModemInfo();
-    inline String getOperator();
-    inline String getProvider();
-    inline int16_t getNetworkMode();
-    inline int16_t getSignalQuality();
-    inline String getSimCCID();
+    String getIMEI();
+    String getIMSI();
+    String getLocalIP();
+    String getModemInfo();
+    String getOperator();
+    String getProvider();
+    int16_t getNetworkMode();
+    int16_t getSignalQuality();
+    String getSimCCID();
     float getTemperature();
     bool setSimPin(const char *);
     bool setApn(const char *);
@@ -156,8 +250,7 @@ private:
     StreamDebugger debugger;
 #endif
     String simPin = String(GSM_SIM_PIN);
-    // TinyGsmClient gsmClient;
-    TinyGsmClient *gsmClient = nullptr;
+    TinyGsmClient gsmClient;
     CellularSecureClient sslClient;
     uint8_t CELLULAR_CID = 1; // Connection ID for TinyGsmClient
     TinyGsm modem;
@@ -168,8 +261,7 @@ private:
     void setClient();
     const char *gprsUser = "";
     const char *gprsPass = "";
-    uint8_t keepAliveInterval;              // Store the delay interval in seconds
-    static void keepAliveTask(void *param); // FreeRTOS task for keeping alive
+    uint8_t keepAliveInterval; // Store the delay interval in seconds
     TaskHandle_t keepAliveHandle = NULL;
     TaskHandle_t maintainHandle = NULL;    // Task handle for maintain task
     static void maintainTask(void *param); // Task function for maintain
@@ -179,7 +271,6 @@ private:
     bool initModem();
     void setupPower();
     bool setupNetwork();
-    void terminateThreads();
     int getBuildYear();
     bool syncTimeViaCNTP(float tz);
     void setSimRegistration();

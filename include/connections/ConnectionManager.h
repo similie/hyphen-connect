@@ -43,7 +43,6 @@ public:
     ConnectionClass getClass() override;
     GPSData getLocation();
     bool getTime(struct tm &, float &) override;
-
     Connection &getConnection(ConnectionClass);
     bool updateApn(const char *);
     bool updateSimPin(const char *);

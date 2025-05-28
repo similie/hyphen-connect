@@ -16,7 +16,6 @@ class WiFiSecureClient : public SecureClient, private WiFiClientSecure
 public:
     WiFiSecureClient() = default;
     ~WiFiSecureClient() override = default;
-
     // Certificate methods
     void setCACert(const char *rootCA) override
     {
@@ -90,6 +89,20 @@ public:
     operator bool() override { return WiFiClientSecure::operator bool(); }
 };
 
+struct NetworkInfo
+{
+    String ssid;
+    String bssid;
+    int32_t rssi;
+    uint8_t channel;
+    wifi_auth_mode_t encryption;
+    IPAddress localIP;
+    IPAddress gatewayIP;
+    IPAddress subnetMask;
+    IPAddress dns1;
+    IPAddress dns2;
+};
+
 class WiFiConnection : public Connection
 {
 private:
@@ -130,6 +143,7 @@ public:
     ConnectionClass getClass() { return ConnectionClass::WIFI; }
     bool getTime(struct tm &, float &) override;
     bool powerSave(bool);
+    NetworkInfo getNetworkInfo();
 };
 
 #endif // ESP32WIFI_H

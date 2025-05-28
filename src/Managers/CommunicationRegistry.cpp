@@ -2,7 +2,6 @@
 
 CommunicationRegistry::CommunicationRegistry()
 {
-    _mutex = xSemaphoreCreateMutex();
 }
 
 const std::array<std::string, CommunicationRegistry::CALLBACK_SIZE> &CommunicationRegistry::getCallbacks()
@@ -127,15 +126,15 @@ bool CommunicationRegistry::registerCallback(const std::string &topic, std::func
 bool CommunicationRegistry::unregisterCallback(const std::string &topic)
 {
     // 1) Find the topic in our flat callbacks[] list
-    if (xSemaphoreTake(_mutex, portMAX_DELAY) != pdTRUE)
-    {
-        return false;
-    }
+    // if (xSemaphoreTake(_mutex, portMAX_DELAY) != pdTRUE)
+    // {
+    //     return false;
+    // }
     int idx = callbackIndex(topic);
     Serial.printf("Unregistering callback for topic: %s, index: %d\n", topic.c_str(), idx);
     if (idx < 0 || static_cast<size_t>(idx) >= callbackCount)
     {
-        xSemaphoreGive(_mutex);
+        // xSemaphoreGive(_mutex);
         // nothing to remove
         return false;
     }
@@ -166,7 +165,7 @@ bool CommunicationRegistry::unregisterCallback(const std::string &topic)
     }
 
     --callbackCount;
-    xSemaphoreGive(_mutex);
+    // xSemaphoreGive(_mutex);
     return true;
 }
 

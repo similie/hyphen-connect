@@ -5,7 +5,6 @@
 // Constructor: configure the PWM channel
 LightManager::LightManager()
 {
-    // pinMode(LED_PIN, OUTPUT);
     ledcSetup(pwmChannel, pwmFrequency, pwmResolution);
     ledcAttachPin(LED_PIN, pwmChannel);
     off(); // Start with LED off
@@ -14,15 +13,32 @@ LightManager::LightManager()
 // Fade in/out over 8 ms per step
 void LightManager::pinLoop()
 {
+    if (stopBreathing)
+    {
+        return;
+    }
     for (int duty = 0; duty <= 255; ++duty)
     {
         ledcWrite(pwmChannel, duty);
         vTaskDelay(pdMS_TO_TICKS(8));
+        if (stopBreathing)
+        {
+            break;
+        }
+    }
+
+    if (stopBreathing)
+    {
+        return;
     }
     for (int duty = 255; duty >= 0; --duty)
     {
         ledcWrite(pwmChannel, duty);
         vTaskDelay(pdMS_TO_TICKS(8));
+        if (stopBreathing)
+        {
+            break;
+        }
     }
 }
 
@@ -73,8 +89,6 @@ void LightManager::runBreathing(void *param)
 
     LightManager *light = static_cast<LightManager *>(param);
     light->stopBreathing = false; // clear any old request
-    light->flashDuration = -1;    // infinite flash
-
     // first run a timed flash
     light->processFlash(3000);
     // now continuous breathing until asked to stop
@@ -82,10 +96,9 @@ void LightManager::runBreathing(void *param)
     {
         light->pinLoop();
     }
-
     // cleanup: clear the handle so others know we’re gone
     light->breathHandle = nullptr;
-    light->processFlash(3000);
+    light->processFlash(1000);
     // make sure LED ends off (or at bright)
     light->off();
     // now delete *this* task
@@ -105,24 +118,12 @@ void LightManager::startBreathing()
         this,
         tskIDLE_PRIORITY + 1,
         &breathHandle,
-        0);
+        1);
 }
 
 void LightManager::endBreathing()
 {
-    // if (breathHandle == nullptr)
-    //     return;
-
-    // vTaskDelete(breathHandle);
-    // breathHandle = nullptr;
-    // flashFor(3000);
-    // coreDelay(5000);
-    // off();
-    if (breathHandle == nullptr)
-        return;
-    // signal the running task to stop itself
     stopBreathing = true;
-    // then return immediately; breathing task will clean up
 }
 
 void LightManager::bright()

@@ -1,7 +1,5 @@
 #include <ArduinoLog.h>
 #include <Arduino.h>
-// #include "SSLClientESP32.h"
-// #include <ESP_SSLClient.h>
 #include "managers/CoreDelay.h"
 #ifndef connection_h
 #define connection_h
@@ -28,33 +26,24 @@ class SecureClient : public Client
 {
 public:
     virtual ~SecureClient() = default;
-
     ///--- Certificate methods ---
     virtual void setCACert(const char *rootCA) = 0;
     virtual void setCertificate(const char *clientCert) = 0;
     virtual void setPrivateKey(const char *privateKey) = 0;
-
+    // virtual void setBufferSizes(int, int) = 0;
     ///--- PSK (pre-shared key) methods ---
     virtual void setPreSharedKey(const char *identity, const char *psk) = 0;
-
     ///--- Insecure/no-verify mode ---
     virtual void setInsecure() = 0;
 
     virtual void setCACertBundle(const uint8_t *) = 0;
     ///--- Handshake timeout (ms) ---
     virtual void setHandshakeTimeout(unsigned long timeout) = 0;
-
-    // ///--- SNI (Server Name Indication) ---
-    // virtual void setSni(const char *serverName) = 0;
-
     ///--- Fingerprint/domain verify ---
     virtual bool verify(const char *fingerprint,
                         const char *domainName = nullptr) = 0;
-
+    // virtual bool verify(const char *fp, uint16_t port) = 0;
     virtual void setClient(Client *) = 0;
-    // ///--- Buffer sizing ---
-    // virtual void setBufferSizes(size_t rx, size_t tx) = 0;
-
     // Allow connect() overload that configures certs inline
     using Client::connect;
     virtual int connect(const char *host, uint16_t port,
@@ -87,7 +76,6 @@ public:
     virtual bool powerSave(bool) = 0;
     virtual void restore() = 0;
     // Virtual Destructor
-
     virtual Connection &connection();
     virtual ~Connection() {}
 };

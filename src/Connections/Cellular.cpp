@@ -1,10 +1,24 @@
 #include "connections/Cellular.h"
 
+#include <esp_heap_caps.h>
+
+// 1) Allocate from DEFAULT heap (or SPIRAM if you prefer MALLOC_CAP_SPIRAM)
+extern "C" void *esp_mbedtls_my_calloc(size_t n, size_t s)
+{
+    return heap_caps_calloc(n, s, MALLOC_CAP_DEFAULT);
+}
+
+// 2) Free back to the same heap
+extern "C" void esp_mbedtls_my_free(void *p)
+{
+    heap_caps_free(p);
+}
+
 Cellular::Cellular()
 #ifdef DUMP_AT_COMMANDS
-    : debugger(SerialAT, SerialMon), modem(debugger)
+    : debugger(SerialAT, SerialMon), modem(debugger), gsmClient(modem, 0)
 #else
-    : modem(SerialAT)
+    : modem(SerialAT), gsmClient(modem, 0)
 #endif
 {
     activeSim = SimType::SIM7600;
@@ -12,6 +26,9 @@ Cellular::Cellular()
     pinMode(CELLULAR_POWER_PIN, OUTPUT);
     pinMode(CELLULAR_POWER_PIN_AUX, OUTPUT);
     digitalWrite(CELLULAR_POWER_PIN_AUX, HIGH);
+    mbedtls_platform_set_calloc_free(
+        esp_mbedtls_my_calloc,
+        esp_mbedtls_my_free);
 }
 
 TinyGsm &Cellular::getModem()
@@ -22,13 +39,7 @@ TinyGsm &Cellular::getModem()
 
 Client &Cellular::getClient()
 {
-
-    if (gsmClient == nullptr)
-    {
-        setClient();
-    }
-    // gsmClient->init(&modem, 0);
-    return *gsmClient;
+    return gsmClient;
 }
 SecureClient &Cellular::secureClient()
 {
@@ -216,10 +227,8 @@ void Cellular::setupPower()
 {
 
     coreDelay(10);
-    // pinMode(CELLULAR_POWER_PIN, OUTPUT);
     digitalWrite(CELLULAR_POWER_PIN, HIGH);
     // this is the action for the SIM7600, other sims may have different power requirements
-    // pinMode(CELLULAR_POWER_PIN_AUX, OUTPUT);
     digitalWrite(CELLULAR_POWER_PIN_AUX, HIGH);
     coreDelay(500);
     digitalWrite(CELLULAR_POWER_PIN_AUX, LOW);
@@ -286,46 +295,30 @@ bool Cellular::on()
     return initModem();
 }
 
-void Cellular::terminateThreads()
-{
-#ifndef HYPHEN_THREADED
-    if (keepAliveHandle != NULL)
-    {
-        Log.noticeln("Deleting keepAlive task...");
-        vTaskDelete(keepAliveHandle);
-        keepAliveHandle = NULL;
-    }
-
-    if (maintainHandle != NULL)
-    {
-        Log.noticeln("Deleting maintain task...");
-        vTaskDelete(maintainHandle);
-        maintainHandle = NULL;
-    }
-
-    coreDelay(100); // Give time for task cleanup
-#endif
-}
-
 // Turn off the modem
 bool Cellular::off()
 {
     modem.poweroff();
     connected = false;
-    terminateThreads();
+    digitalWrite(CELLULAR_POWER_PIN, LOW);
     return true;
 }
 
 bool Cellular::reload()
 {
+    disconnect();
     off();
     coreDelay(1000);
-    return on();
+    return init();
 }
 
-/*
- * Conceptual. It hasn't yet proven to be useful.
+/**
+ * @brief not implemented yet. We sometimes see issues with sim cards locking
+ * up, none of this has worked so far
+ *
+ * @return true
  */
+// Call this after your modem object is initialized but before you try to use it
 bool Cellular::factoryReset()
 {
 
@@ -336,7 +329,6 @@ bool Cellular::factoryReset()
     modem.waitResponse();
     // modem.sendAT("+CNMP=2"); // auto mode (2G/3G/LTE)
     // modem.waitResponse();
-    // (AT+CNBP to reset band mask is usually not needed if using AT&F)
     // 4. Load factory defaults and save to NVRAM
     modem.sendAT("&F"); // factory default profile [oai_citation_attribution:14‡manualslib.com](https://www.manualslib.com/manual/1889278/Simcom-Sim7500-Series.html#:~:text=,value)
     modem.waitResponse();
@@ -387,19 +379,15 @@ bool Cellular::initModem()
 
     if (!modemReady)
     {
-
         return false;
     }
 
-    // Log.noticeln("RESETTING TH EMODEL %s", String(modemReady ? "TRUE" : "FALSE"));
     if (modemReady && connectionAttempts >= maxConnectionAttempts && factoryReset())
     {
         connectionAttempts = 0;
         Log.noticeln("RESTORING MODEM FACTORY DEFAULT");
-        // return false;
     }
     coreDelay(500);
-    // coreDelay(1000);
 
     if (!modem.init())
     {
@@ -428,35 +416,32 @@ bool Cellular::setApn(const char *setApn)
 
 bool Cellular::maintain()
 {
-    modem.maintain();
-    return isConnected();
+    disconnect();
+    if (!modem.testAT())
+    {
+        return false;
+    }
+
+    if (!setupNetwork())
+    {
+        return false;
+    }
+    return connect();
 }
 void Cellular::setClient()
 {
-    if (gsmClient != nullptr)
-    {
-        return;
-    }
-    gsmClient = new TinyGsmClient(modem, CELLULAR_CID);
+    gsmClient.init(&modem, 0);
 }
 
 void Cellular::restore()
 {
-    sslClient.stop();
-    gsmClient->flush();
-    gsmClient->stop();
-    gsmClient = nullptr;
-    setClient();
-    sslClient.setClient(&getClient());
+    reload();
 }
 // Connect to the network
 bool Cellular::connect()
 {
-    terminateThreads(); // 20000L
     if (!modem.waitForNetwork(20000L))
     {
-
-        // setSimRegistration();
         Log.errorln("Network connection failed.");
         return false;
     }
@@ -466,7 +451,6 @@ bool Cellular::connect()
         return false;
     }
 
-    gsmClient = nullptr;
     uint8_t count = 0;
     const uint8_t maxRetries = 10;
     connected = false;
@@ -488,11 +472,6 @@ bool Cellular::connect()
         setClient();
         connectionAttempts = 0;
     }
-    // else if (modem.factoryDefault())
-    // {
-    //     Serial.println("RESTORING MODEM FACTORY DEFAULT");
-    // }
-
     return connected;
 }
 
@@ -531,14 +510,6 @@ void Cellular::setActiveSim(SimType simType)
 // Keep the cellular connection alive using FreeRTOS
 bool Cellular::keepAlive(uint8_t seconds)
 {
-#ifndef HYPHEN_THREADED
-    // Create a FreeRTOS task for keep-alive functionality
-    keepAliveInterval = seconds; // Set the interval delay
-    if (keepAliveHandle == NULL)
-    {
-        xTaskCreatePinnedToCore(keepAliveTask, "KeepAliveTask", 4096, this, 1, &keepAliveHandle, 1);
-    }
-#endif
     return true;
 }
 
@@ -559,64 +530,64 @@ bool Cellular::disableGPS()
 bool Cellular::setupNetwork()
 {
     /**
- *
- * 2 – Automatic
-13 – GSM Only
-14 – WCDMA Only
-38 – LTE Only
-59 – TDS-CDMA Only
-9 – CDMA Only
-10 – EVDO Only
-19 – GSM+WCDMA Only
-22 – CDMA+EVDO Only
-48 – Any but LTE
-60 – GSM+TDSCDMA Only
-63 – GSM+WCDMA+TDSCDMA Only
-67 – CDMA+EVDO+GSM+WCDMA+TDSCDMA Only
-39 – GSM+WCDMA+LTE Only
-51 – GSM+LTE Only
-54 – WCDMA+LTE Only
- *
- */
+     * SIM7600 Network Modes:
+     * 2 – Automatic
+     * 13 – GSM Only
+     * 14 – WCDMA Only
+     * 38 – LTE Only
+     * 59 – TDS-CDMA Only
+     * 9 – CDMA Only
+     * 10 – EVDO Only
+     * 19 – GSM+WCDMA Only
+     * 22 – CDMA+EVDO Only
+     * 48 – Any but LTE
+     * 60 – GSM+TDSCDMA Only
+     * 63 – GSM+WCDMA+TDSCDMA Only
+     * 67 – CDMA+EVDO+GSM+WCDMA+TDSCDMA Only
+     * 39 – GSM+WCDMA+LTE Only
+     * 51 – GSM+LTE Only
+     * 54 – WCDMA+LTE Only
+     *
+     */
     return modem.setNetworkMode(NETWORK_MODE); // Automatic mode (GSM and LTE)
 }
 
-inline String Cellular::getModemInfo()
+String Cellular::getModemInfo()
 {
     return modem.getModemInfo();
 }
 
-inline String Cellular::getIMSI()
+String Cellular::getIMSI()
 {
     return modem.getIMSI();
 }
 
-inline String Cellular::getLocalIP()
+String Cellular::getLocalIP()
 {
     return modem.getLocalIP();
 }
 
-inline String Cellular::getIMEI()
+String Cellular::getIMEI()
 {
     return modem.getIMEI();
 }
 
-inline String Cellular::getOperator()
+String Cellular::getOperator()
 {
     return modem.getOperator();
 }
 
-inline int16_t Cellular::getNetworkMode()
+int16_t Cellular::getNetworkMode()
 {
     return modem.getNetworkMode();
 }
 
-inline String Cellular::getSimCCID()
+String Cellular::getSimCCID()
 {
     return modem.getSimCCID();
 }
 
-inline String Cellular::getProvider()
+String Cellular::getProvider()
 {
     return modem.getProvider();
 }
@@ -626,24 +597,7 @@ float Cellular::getTemperature()
     return modem.getTemperature();
 }
 
-inline int16_t Cellular::getSignalQuality()
+int16_t Cellular::getSignalQuality()
 {
     return modem.getSignalQuality();
-}
-
-// Static FreeRTOS task function for keep-alive
-void Cellular::keepAliveTask(void *param)
-{
-    Cellular *cellular = static_cast<Cellular *>(param);
-    uint32_t delayTicks = cellular->keepAliveInterval * 1000 / portTICK_PERIOD_MS;
-
-    while (true)
-    {
-        if (cellular->isConnected())
-        {
-            cellular->modem.maintain();
-            Log.noticeln("Keep-alive task: Connection maintained.");
-        }
-        vTaskDelay(delayTicks); // Delay according to the specified interval
-    }
 }

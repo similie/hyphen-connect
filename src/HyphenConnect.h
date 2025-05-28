@@ -95,6 +95,7 @@ public:
     bool subscribe(const char *topic, std::function<void(const char *, const char *)> cb);
     bool unsubscribe(const char *topic);
     bool publishTopic(const String &topic, const String &payload);
+    bool publishTopic(const char *, uint8_t *, size_t);
     void function(const char *name, std::function<int(const char *)> fn);
     void variable(const char *name, int *v);
     void variable(const char *name, long *v);
@@ -126,7 +127,6 @@ private:
     const unsigned long THREAD_CHECK_INTERVAL = 10000 * 6; // 10 seconds
     bool threadCheckReady();
     HyphenRunner &runner = HyphenRunner::get();
-    void rebuildThread();
 #endif
 };
 

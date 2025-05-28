@@ -68,7 +68,6 @@ bool ConnectionManager::attemptConnection(Connection &conn)
 
 bool ConnectionManager::init()
 {
-    coreDelay(5000);
     Log.noticeln("Initializing connections...");
     // Initialize all connections
     currentConnection = nullptr;
@@ -77,7 +76,6 @@ bool ConnectionManager::init()
 
 bool ConnectionManager::connect()
 {
-
     Log.noticeln("Attempting to connect via connection manager...");
     if (currentConnection != nullptr && currentConnection->isConnected())
     {
@@ -96,15 +94,19 @@ bool ConnectionManager::connect()
         disconnect();
         coreDelay(5000);
     }
-    Log.warningln("Failed to connect. Attempting all connections...");
+
+    size_t numConnections = connections.size();
+    Log.warningln("Failed to connect. Attempting all connections... %d", numConnections);
+    // size_t currentIndex = 0;
     for (auto &conn : connections)
     {
         if (attemptConnection(*conn.get()))
         {
             return true;
         }
+        conn->disconnect();
         conn->off();
-        coreDelay(5000);
+        coreDelay(1000);
         Log.errorln("Failed to connect. Powering off and trying next connection...");
     }
     return false;
@@ -163,15 +165,21 @@ bool ConnectionManager::keepAlive(uint8_t maxRetries)
 
 bool ConnectionManager::reconnect()
 {
+    if (currentConnection && currentConnection->maintain())
+    {
+        Log.noticeln("Connection is still active.");
+        return true;
+    }
     disconnect();
     return connect();
 }
 
 bool ConnectionManager::maintain()
 {
+    Log.noticeln("Maintaining connection...");
     if (currentConnection && currentConnection->isConnected())
     {
-        return currentConnection->maintain();
+        return true;
     }
     else
     {
