@@ -206,13 +206,13 @@ void SecureMQTTProcessor::maintain()
     {
         return;
     }
-    maintanceEvent = true;
+    maintenceEvent = true;
     // if during this execution the loop is called, we will wait for it to finish
     while (loopEvent || processing)
         ;
     Lock l;
     runMaintenance();
-    maintanceEvent = false;
+    maintenceEvent = false;
 }
 
 bool SecureMQTTProcessor::waitForMaintenance()
@@ -498,7 +498,7 @@ bool SecureMQTTProcessor::onDisconnect()
     return false;
 }
 
-bool SecureMQTTProcessor::prePrecesss()
+bool SecureMQTTProcessor::preProcesss()
 {
     if (!waitForMaintenance())
     {
