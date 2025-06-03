@@ -1,0 +1,8 @@
+.pio
+.vscode
+platformio.ini
+partitions.csv
+data
+.DS_Store
+src/main.cpp
+CMakeLists.txt
