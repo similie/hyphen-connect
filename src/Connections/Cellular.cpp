@@ -39,6 +39,12 @@ TinyGsm &Cellular::getModem()
 
 Client &Cellular::getClient()
 {
+
+    // if (gsmClient == nullptr)
+    // {
+    //     setClient();
+    // }
+    // gsmClient.init(&modem, 0);
     return gsmClient;
 }
 SecureClient &Cellular::secureClient()
@@ -227,8 +233,10 @@ void Cellular::setupPower()
 {
 
     coreDelay(10);
+    // pinMode(CELLULAR_POWER_PIN, OUTPUT);
     digitalWrite(CELLULAR_POWER_PIN, HIGH);
     // this is the action for the SIM7600, other sims may have different power requirements
+    // pinMode(CELLULAR_POWER_PIN_AUX, OUTPUT);
     digitalWrite(CELLULAR_POWER_PIN_AUX, HIGH);
     coreDelay(500);
     digitalWrite(CELLULAR_POWER_PIN_AUX, LOW);
@@ -294,7 +302,6 @@ bool Cellular::on()
     SerialAT.begin(UART_BAUD, SERIAL_8N1, CELLULAR_PIN_RX, CELLULAR_PIN_TX);
     return initModem();
 }
-
 // Turn off the modem
 bool Cellular::off()
 {
@@ -312,12 +319,6 @@ bool Cellular::reload()
     return init();
 }
 
-/**
- * @brief not implemented yet. We sometimes see issues with sim cards locking
- * up, none of this has worked so far
- *
- * @return true
- */
 // Call this after your modem object is initialized but before you try to use it
 bool Cellular::factoryReset()
 {
@@ -329,6 +330,7 @@ bool Cellular::factoryReset()
     modem.waitResponse();
     // modem.sendAT("+CNMP=2"); // auto mode (2G/3G/LTE)
     // modem.waitResponse();
+    // (AT+CNBP to reset band mask is usually not needed if using AT&F)
     // 4. Load factory defaults and save to NVRAM
     modem.sendAT("&F"); // factory default profile [oai_citation_attribution:14‡manualslib.com](https://www.manualslib.com/manual/1889278/Simcom-Sim7500-Series.html#:~:text=,value)
     modem.waitResponse();
@@ -379,15 +381,19 @@ bool Cellular::initModem()
 
     if (!modemReady)
     {
+
         return false;
     }
 
+    // Log.noticeln("RESETTING TH EMODEL %s", String(modemReady ? "TRUE" : "FALSE"));
     if (modemReady && connectionAttempts >= maxConnectionAttempts && factoryReset())
     {
         connectionAttempts = 0;
         Log.noticeln("RESTORING MODEM FACTORY DEFAULT");
+        // return false;
     }
     coreDelay(500);
+    // coreDelay(1000);
 
     if (!modem.init())
     {
@@ -431,10 +437,22 @@ bool Cellular::maintain()
 void Cellular::setClient()
 {
     gsmClient.init(&modem, 0);
+    // gsmClient.
+    // if (gsmClient != nullptr)
+    // {
+    //     return;
+    // }
+    // gsmClient = new TinyGsmClient(modem, CELLULAR_CID);
 }
 
 void Cellular::restore()
 {
+    // sslClient.stop();
+    // gsmClient->flush();
+    // gsmClient->stop();
+    // gsmClient = nullptr;
+    // setClient();
+    // sslClient.setClient(&getClient());
     reload();
 }
 // Connect to the network
@@ -442,6 +460,8 @@ bool Cellular::connect()
 {
     if (!modem.waitForNetwork(20000L))
     {
+
+        // setSimRegistration();
         Log.errorln("Network connection failed.");
         return false;
     }
@@ -451,6 +471,7 @@ bool Cellular::connect()
         return false;
     }
 
+    // gsmClient = nullptr;
     uint8_t count = 0;
     const uint8_t maxRetries = 10;
     connected = false;
@@ -472,6 +493,11 @@ bool Cellular::connect()
         setClient();
         connectionAttempts = 0;
     }
+    // else if (modem.factoryDefault())
+    // {
+    //     Serial.println("RESTORING MODEM FACTORY DEFAULT");
+    // }
+
     return connected;
 }
 
@@ -510,6 +536,14 @@ void Cellular::setActiveSim(SimType simType)
 // Keep the cellular connection alive using FreeRTOS
 bool Cellular::keepAlive(uint8_t seconds)
 {
+#ifndef HYPHEN_THREADED
+    // Create a FreeRTOS task for keep-alive functionality
+    keepAliveInterval = seconds; // Set the interval delay
+    if (keepAliveHandle == NULL)
+    {
+        xTaskCreatePinnedToCore(keepAliveTask, "KeepAliveTask", 4096, this, 1, &keepAliveHandle, 1);
+    }
+#endif
     return true;
 }
 
@@ -530,25 +564,25 @@ bool Cellular::disableGPS()
 bool Cellular::setupNetwork()
 {
     /**
-     * SIM7600 Network Modes:
-     * 2 – Automatic
-     * 13 – GSM Only
-     * 14 – WCDMA Only
-     * 38 – LTE Only
-     * 59 – TDS-CDMA Only
-     * 9 – CDMA Only
-     * 10 – EVDO Only
-     * 19 – GSM+WCDMA Only
-     * 22 – CDMA+EVDO Only
-     * 48 – Any but LTE
-     * 60 – GSM+TDSCDMA Only
-     * 63 – GSM+WCDMA+TDSCDMA Only
-     * 67 – CDMA+EVDO+GSM+WCDMA+TDSCDMA Only
-     * 39 – GSM+WCDMA+LTE Only
-     * 51 – GSM+LTE Only
-     * 54 – WCDMA+LTE Only
-     *
-     */
+ *
+ * 2 – Automatic
+13 – GSM Only
+14 – WCDMA Only
+38 – LTE Only
+59 – TDS-CDMA Only
+9 – CDMA Only
+10 – EVDO Only
+19 – GSM+WCDMA Only
+22 – CDMA+EVDO Only
+48 – Any but LTE
+60 – GSM+TDSCDMA Only
+63 – GSM+WCDMA+TDSCDMA Only
+67 – CDMA+EVDO+GSM+WCDMA+TDSCDMA Only
+39 – GSM+WCDMA+LTE Only
+51 – GSM+LTE Only
+54 – WCDMA+LTE Only
+ *
+ */
     return modem.setNetworkMode(NETWORK_MODE); // Automatic mode (GSM and LTE)
 }
 

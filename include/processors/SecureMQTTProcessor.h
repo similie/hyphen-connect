@@ -1,10 +1,9 @@
-
-
 #ifndef __aws_mqtt_processor__
 #define __aws_mqtt_processor__
 #include <Ticker.h>
 #include <PubSubClient.h>
 #include "connections/Connection.h"
+#include "managers/HealthCheck.h"
 #include "Managers.h"
 #include "Processor.h"
 #include <freertos/semphr.h>
@@ -48,15 +47,16 @@ public:
     bool subscribe(const char *, std::function<void(const char *, const char *)>);
     bool unsubscribe(const char *);
     bool init();
-    void maintain();
+    bool maintain();
     void loop();
     bool ready();
 
 private:
-    // Recursive-mutex guard
     volatile bool processing = false;
     volatile bool loopEvent = false;
-    volatile bool maintenceEvent = false;
+    volatile bool maintenanceEvent = false;
+    volatile bool MQTTConnected = false;
+    HealthCheck health;
     bool waitForMaintenance();
     bool preProcesss();
     bool loopNotReady();
@@ -85,14 +85,11 @@ private:
     bool attachServer();
     bool attachCertificates();
     bool initialized = false;
-    bool MQTTConnected = false;
-    // bool reconnectingEvent = false;
     FileManager fm;
     LightManager light;
     TaskHandle_t maintainConnectHandle = NULL;
     uint8_t connectCount = 0;
-    // unsigned long lastInActivity = 0;
-    const uint8_t KEEP_ALIVE = MQTT_KEEP_ALIVE_INTERVAL;                                               // Keep-alive interval in seconds
+    const uint16_t KEEP_ALIVE = MQTT_KEEP_ALIVE_INTERVAL;                                              // Keep-alive interval in seconds
     const unsigned int KEEP_ALIVE_INTERVAL = KEEP_ALIVE * MQTT_KEEP_ALIVE_INTERVAL_LOOP_OFFSET * 1000; // Keep-alive interval in seconds
     const char *CLIENT_ID = DEVICE_PUBLIC_ID;
     bool keepAliveReady();
@@ -105,7 +102,8 @@ private:
     Client *client = nullptr;
 #endif
     void stop();
-    void cleanupDisconnect();
+    bool cleanupDisconnect();
+    void restartSSL();
     void mqttCallback(char *topic, byte *payload, unsigned int length);
     bool setupSecureConnection();
     bool loadCertificates();
@@ -114,16 +112,20 @@ private:
     void subscribeToTopics();
     bool subscribeToTopic(const char *topic);
     bool unsubscribeToTopic(const char *topic);
-    void runMaintenance();
+    bool runMaintenance();
+    void threadConnectionMaintenance();
+    static void maintenanceCallback(SecureMQTTProcessor *instance);
+    static void threadConnectionMaintenance(void *pv);
     void toggleMaintenance();
     bool isMaintenanceRunning = false;
+    // bool maintaining = false;
     const size_t restorationAttempts = 5;
     Ticker _keepAliveTicker;
     TaskHandle_t maintenceHandle = nullptr;
     esp_timer_handle_t _maintenanceTimer;
-    void stopMaintenaceTicker();
-    void setMaintenaceTicker();
-    void resetMaintenaceTicker();
+    void stopMaintenanceTicker();
+    void setMaintenanceTicker();
+    void resetMaintenanceTicker();
     template <class TArg>
     void attach(unsigned long seconds, void (*callback)(TArg), TArg arg);
 };

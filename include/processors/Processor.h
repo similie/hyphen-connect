@@ -13,7 +13,7 @@ public:
     virtual bool init() = 0;
     virtual void loop() = 0;
     virtual bool ready() = 0;
-    virtual void maintain() = 0;
+    virtual bool maintain() = 0;
     virtual bool publish(const char *topic, const char *payload) = 0;
     virtual bool publish(const char *topic, uint8_t *buf, size_t) = 0;
     virtual bool subscribe(const char *topic, std::function<void(const char *, const char *)> callback) = 0;

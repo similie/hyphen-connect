@@ -22,10 +22,12 @@ public:
   volatile uint32_t _lastAliveMs;
   bool isStuck(uint32_t timeoutMs) const;
   void loop();
+  bool ready();
 
 private:
   HyphenRunner();
-
+  void begin();
+  void processorLoops();
   TaskHandle_t manangerInitHandle = nullptr;
   void startManagerInitTask();
   static void managerInitTask(void *pv);
@@ -45,8 +47,6 @@ private:
   const uint32_t LAST_ALIVE_THRESHOLD = 1000 * 60 * 5; // 10 minutes
   volatile bool initialized = false;
   void rebuildConnection();
-  bool requiresRebuild();
-  bool ready();
   void tick()
   {
     _lastAliveMs = millis();

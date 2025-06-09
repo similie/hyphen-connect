@@ -8,6 +8,8 @@ bool SubscriptionManager::init()
 {
     subscriptionDone = false;
     applyRegistration = false;
+    // functionCount = 0;
+    // variableCount = 0;
     bool init = processor.init();
 
     if (!init)
@@ -282,9 +284,8 @@ bool SubscriptionManager::registryReady()
     return functionCount > 0 && checkReady;
 }
 
-void SubscriptionManager::maintain()
+bool SubscriptionManager::maintain()
 {
-    processor.maintain();
     if (applyRegistration)
     {
         runRegistration();
@@ -294,6 +295,7 @@ void SubscriptionManager::maintain()
     {
         sendRegistry();
     }
+    return processor.maintain();
 }
 
 void SubscriptionManager::loop()

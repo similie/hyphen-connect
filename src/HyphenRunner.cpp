@@ -1,9 +1,5 @@
 #include "HyphenRunner.h"
 #include "HyphenConnect.h"
-
-// static const EventBits_t BIT_TRANSPORT = (1 << 0);
-// static const EventBits_t BIT_MQTT = (1 << 1);
-
 HyphenRunner &HyphenRunner::get()
 {
     static HyphenRunner inst;
@@ -17,13 +13,10 @@ HyphenRunner::HyphenRunner()
 void HyphenRunner::startRunnerTask()
 {
     eg = xEventGroupCreate();
-    // wantInit = true;
     runConnection = true;
-    // initialized = false;
     coreDelay(500);
     xTaskCreatePinnedToCore(taskEntry,
                             "HyphenRunner",
-                            //  allocatedStack,
                             allocatedStack / sizeof(StackType_t),
                             this,
                             tskIDLE_PRIORITY + 1,
@@ -31,17 +24,6 @@ void HyphenRunner::startRunnerTask()
                             0);
 }
 
-bool HyphenRunner::requiresRebuild()
-{
-    // we check every MQTT_KEEP_ALIVE_INTERVAL seconds
-    if (millis() - threadCheck < MQTT_KEEP_ALIVE_INTERVAL * 1000)
-    {
-        return false;
-    }
-    Log.noticeln(F("[Runner] checking if requires rebuild..."));
-    threadCheck = millis();
-    return !isAlive() || isStuck(LAST_ALIVE_THRESHOLD);
-}
 bool HyphenRunner::ready()
 {
     return hyphen->connectedOn && connectionStarted;
@@ -52,26 +34,35 @@ void HyphenRunner::loop()
     {
         return;
     }
+    processorLoops();
+}
 
-    if (connectionStarted)
+void HyphenRunner::processorLoops()
+{
+    if (!connectionStarted)
     {
-        hyphen->manager.loop();
+        return;
     }
 
-    if (requiresRebuild())
+    hyphen->manager.loop();
+    if (hyphen->manager.maintain())
     {
-        return rebuildConnection();
+        return;
     }
+    begin();
+}
+
+void HyphenRunner::begin()
+{
+    connectionStarted = false;
+    startRunnerTask();
+    coreDelay(300);
 }
 
 void HyphenRunner::begin(HyphenConnect *hc)
 {
     hyphen = hc;
-    // initialized = false;
-    connectionStarted = false;
-    runConnection = true;
-    startRunnerTask();
-    coreDelay(300);
+    begin();
 }
 
 bool HyphenRunner::isAlive() const
@@ -94,18 +85,13 @@ void HyphenRunner::stop()
         // we’re _inside_ the runner, so delete ourselves
         loopHandle = nullptr;
         vTaskDelete(NULL);
-        // no code after this!
+        return;
     }
-    else
-    {
-        // another task is tearing us down
-        TaskHandle_t h = loopHandle;
-        loopHandle = nullptr;
-        vTaskDelete(h);
-    }
-    // xTaskAbortDelay(loopHandle);
-    // vTaskDelete(loopHandle);
-    // loopHandle = nullptr;
+
+    // another task is tearing us down
+    TaskHandle_t h = loopHandle;
+    loopHandle = nullptr;
+    vTaskDelete(h);
 }
 
 void HyphenRunner::restart(HyphenConnect *hc)
@@ -159,8 +145,7 @@ void HyphenRunner::rebuildConnection()
 {
     Log.infoln(F("[Runner] rebuilding connection..."));
     runConnection = false;
-
-    coreDelay(600); // wait for the connection to be fully disconnected
+    coreDelay(300); // wait for the connection to be fully disconnected
     stop();
     coreDelay(100);
     hyphen->processor.disconnect();
@@ -176,19 +161,15 @@ void HyphenRunner::rebuildConnection()
 void HyphenRunner::runTask()
 {
     Log.infoln(F("[Runner] starting %s"), String(hyphen->connectedOn));
+    unsigned long delaycheck = millis();
     connectionStarted = false;
-    while (hyphen->connectedOn && runConnection)
-    {
 
-        if (initManager())
-        {
-            Log.infoln(F("[Runner] connection started"));
-        }
-        hyphen->manager.maintain();
-        tick();
-        vTaskDelay(pdMS_TO_TICKS(50));
+    if (initManager())
+    {
+        Log.infoln(F("[Runner] connection started"));
     }
 
     Log.infoln(F("[Runner] stopping"));
-    stop();
+    loopHandle = nullptr;
+    vTaskDelete(NULL);
 }

@@ -70,7 +70,7 @@ public:
     // void variable();
     void loop();
     bool init();
-    void maintain();
+    bool maintain();
     bool publishTopic(String topic, String payload);
     bool publishTopic(const char *topic, uint8_t *buf, size_t length);
     bool isConnected();
