@@ -1,6 +1,5 @@
 #pragma once
 #include <Arduino.h>
-#include <ESP.h>
 #ifndef HEALTH_CHECK_STUCK_INTERVAL
 #define HEALTH_CHECK_STUCK_INTERVAL 60 * 1000 * 10 // 10 seconds
 #endif
