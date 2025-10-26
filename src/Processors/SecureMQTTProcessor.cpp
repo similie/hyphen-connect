@@ -293,6 +293,30 @@ bool SecureMQTTProcessor::loadCertificates()
         return attachCertificates();
     }
 
+// ✅ Try to use embedded certificates first
+#if defined(_binary_src_certs_root_ca_pem_start)
+    String caContent((const char *)_binary_src_certs_root_ca_pem_start,
+                     (size_t)(_binary_src_certs_root_ca_pem_end - _binary_src_certs_root_ca_pem_start));
+    String certContent((const char *)_binary_src_certs_device_cert_pem_start,
+                       (size_t)(_binary_src_certs_device_cert_pem_end - _binary_src_certs_device_cert_pem_start));
+    String keyContent((const char *)_binary_src_certs_private_key_pem_start,
+                      (size_t)(_binary_src_certs_private_key_pem_end - _binary_src_certs_private_key_pem_start));
+
+    if (!caContent.isEmpty() && !certContent.isEmpty() && !keyContent.isEmpty())
+    {
+        certificates[CA] = caContent;
+        certificates[DeviceCertificate] = certContent;
+        certificates[DevicePrivateKey] = keyContent;
+        certsCached = true;
+        Log.noticeln("✅ Loaded embedded certificates from flash.");
+        return attachCertificates();
+    }
+    else
+    {
+        Log.warningln("⚠️ Embedded certificates missing or empty, falling back to SPIFFS.");
+    }
+#endif
+
     if (!fm.start())
     {
         Log.errorln("Failed to initialize SPIFFS");

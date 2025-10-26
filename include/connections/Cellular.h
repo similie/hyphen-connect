@@ -21,6 +21,10 @@
 NETWORK_MODE 2
 #endif
 
+#ifndef GSM_SIM_PIN
+#define GSM_SIM_PIN ""
+#endif
+
     enum class SimType {
         SIM7070,
         SIM7600
