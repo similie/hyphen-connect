@@ -13,6 +13,15 @@
 
 #include <ArduinoJson.h>
 
+extern const uint8_t _binary_src_certs_root_ca_pem_start[] asm("_binary_src_certs_root_ca_pem_start");
+extern const uint8_t _binary_src_certs_root_ca_pem_end[] asm("_binary_src_certs_root_ca_pem_end");
+
+extern const uint8_t _binary_src_certs_device_cert_pem_start[] asm("_binary_src_certs_device_cert_pem_start");
+extern const uint8_t _binary_src_certs_device_cert_pem_end[] asm("_binary_src_certs_device_cert_pem_end");
+
+extern const uint8_t _binary_src_certs_private_key_pem_start[] asm("_binary_src_certs_private_key_pem_start");
+extern const uint8_t _binary_src_certs_private_key_pem_end[] asm("_binary_src_certs_private_key_pem_end");
+
 #ifndef MQTT_KEEP_ALIVE_INTERVAL
 #define MQTT_KEEP_ALIVE_INTERVAL 30 // seconds
 #endif

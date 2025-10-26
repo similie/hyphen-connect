@@ -292,6 +292,26 @@ bool SecureMQTTProcessor::loadCertificates()
     {
         return attachCertificates();
     }
+    size_t ca_len = _binary_src_certs_root_ca_pem_end - _binary_src_certs_root_ca_pem_start;
+    size_t crt_len = _binary_src_certs_device_cert_pem_end - _binary_src_certs_device_cert_pem_start;
+    size_t key_len = _binary_src_certs_private_key_pem_end - _binary_src_certs_private_key_pem_start;
+
+    Log.noticeln("DEBUG: embedded lengths – ca=%u crt=%u key=%u",
+                 (unsigned)ca_len, (unsigned)crt_len, (unsigned)key_len);
+
+    if (ca_len && crt_len && key_len)
+    {
+        String caContent((const char *)_binary_src_certs_root_ca_pem_start, ca_len);
+        String crtContent((const char *)_binary_src_certs_device_cert_pem_start, crt_len);
+        String keyContent((const char *)_binary_src_certs_private_key_pem_start, key_len);
+
+        certificates[CA] = caContent;
+        certificates[DeviceCertificate] = crtContent;
+        certificates[DevicePrivateKey] = keyContent;
+        certsCached = true;
+        Log.noticeln("✅ Loaded embedded certificates from flash.");
+        return attachCertificates();
+    }
 
 // ✅ Try to use embedded certificates first
 #if defined(_binary_src_certs_root_ca_pem_start)
