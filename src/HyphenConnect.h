@@ -108,6 +108,8 @@ public:
     bool isOnline() { return connectedOn; };
     Client &getClient();
     SecureClient &getSecureClient();
+    Client &newClient();
+    SecureClient &newSecureClient();
     ConnectionClass getConnectionClass();
     Connection &getConnection();
     SubscriptionManager &getSubscriptionManager();

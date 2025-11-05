@@ -146,6 +146,9 @@ void HyphenConnect::disconnect()
 }
 SecureClient &HyphenConnect::getSecureClient() { return connection.secureClient(); }
 Client &HyphenConnect::getClient() { return connection.getClient(); }
+
+SecureClient &HyphenConnect::newSecureClient() { return connection.getNewSecureClient(); }
+Client &HyphenConnect::newClient() { return connection.getNewClient(); }
 ConnectionClass HyphenConnect::getConnectionClass() { return connection.getClass(); }
 Connection &HyphenConnect::getConnection() { return connection.connection(); }
 SubscriptionManager &HyphenConnect::getSubscriptionManager() { return manager; }
