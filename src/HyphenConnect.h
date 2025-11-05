@@ -107,6 +107,7 @@ public:
     bool connectionOff();
     bool isOnline() { return connectedOn; };
     Client &getClient();
+    SecureClient &getSecureClient();
     ConnectionClass getConnectionClass();
     Connection &getConnection();
     SubscriptionManager &getSubscriptionManager();
