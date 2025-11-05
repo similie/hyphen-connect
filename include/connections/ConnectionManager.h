@@ -39,6 +39,8 @@ public:
     bool maintain() override;
     Client &getClient() override;
     SecureClient &secureClient() override;
+    Client &getNewClient() override;
+    SecureClient &getNewSecureClient() override;
     Connection &connection() override;
     ConnectionClass getClass() override;
     GPSData getLocation();

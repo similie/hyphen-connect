@@ -230,3 +230,13 @@ SecureClient &WiFiConnection::secureClient()
 {
     return sslClient;
 }
+Client &WiFiConnection::getNewClient()
+{
+    static WiFiClient clientNew;
+    return clientNew;
+}
+SecureClient &WiFiConnection::getNewSecureClient()
+{
+    static WiFiSecureClient sslClientNew; // Secure WiFi client
+    return sslClientNew;
+}

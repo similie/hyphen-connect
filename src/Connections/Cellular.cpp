@@ -31,6 +31,19 @@ SecureClient &Cellular::secureClient()
     return sslClient;
 }
 
+Client &Cellular::getNewClient()
+{
+    static TinyGsmClient gsmClientNew(getModem(), 0);
+    return gsmClientNew;
+}
+
+SecureClient &Cellular::getNewSecureClient()
+{
+    static CellularSecureClient sslClientNew;
+    sslClientNew.setClient(&getNewClient());
+    return sslClientNew;
+}
+
 // Active NTP sync via AT+CNTP
 bool Cellular::syncTimeViaCNTP(float tz)
 {

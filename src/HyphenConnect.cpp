@@ -144,7 +144,7 @@ void HyphenConnect::disconnect()
     connection.disconnect();
     connectedOn = false;
 }
-
+SecureClient &HyphenConnect::getSecureClient() { return connection.secureClient(); }
 Client &HyphenConnect::getClient() { return connection.getClient(); }
 ConnectionClass HyphenConnect::getConnectionClass() { return connection.getClass(); }
 Connection &HyphenConnect::getConnection() { return connection.connection(); }

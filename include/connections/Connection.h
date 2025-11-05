@@ -70,6 +70,8 @@ public:
     virtual bool maintain() = 0;
     virtual Client &getClient() = 0;
     virtual SecureClient &secureClient() = 0;
+    virtual Client &getNewClient() = 0;
+    virtual SecureClient &getNewSecureClient() = 0;
     virtual bool init() = 0;
     virtual ConnectionClass getClass() = 0;
     virtual bool getTime(struct tm &, float &) = 0;

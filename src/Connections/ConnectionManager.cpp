@@ -202,6 +202,15 @@ SecureClient &ConnectionManager::secureClient()
     return currentConnection->secureClient();
 }
 
+Client &ConnectionManager::getNewClient()
+{
+    return currentConnection->getNewClient();
+}
+SecureClient &ConnectionManager::getNewSecureClient()
+{
+    return currentConnection->getNewSecureClient();
+}
+
 Connection &ConnectionManager::connection()
 {
     if (currentConnection)

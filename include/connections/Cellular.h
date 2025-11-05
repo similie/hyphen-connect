@@ -225,6 +225,8 @@ public:
     TinyGsm &getModem();
     Client &getClient() override;
     SecureClient &secureClient() override;
+    Client &getNewClient() override;
+    SecureClient &getNewSecureClient() override;
     bool enableGPS();
     bool disableGPS();
     bool getCellularTime(struct tm &);
