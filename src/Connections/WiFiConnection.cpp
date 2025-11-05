@@ -232,11 +232,10 @@ SecureClient &WiFiConnection::secureClient()
 }
 Client &WiFiConnection::getNewClient()
 {
-    static WiFiClient clientNew;
-    return clientNew;
+    return secondaryClient;
 }
 SecureClient &WiFiConnection::getNewSecureClient()
 {
-    static WiFiSecureClient sslClientNew; // Secure WiFi client
-    return sslClientNew;
+    // Completely independent TLS context
+    return secondarySslClient;
 }

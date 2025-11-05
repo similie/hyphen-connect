@@ -258,6 +258,8 @@ private:
     String simPin = String(GSM_SIM_PIN);
     TinyGsmClient gsmClient;
     CellularSecureClient sslClient;
+    TinyGsmClient secondaryGsmClient;
+    CellularSecureClient secondarySslClient;
     uint8_t CELLULAR_CID = 1; // Connection ID for TinyGsmClient
     TinyGsm modem;
     Ticker tick;

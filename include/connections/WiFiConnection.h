@@ -117,8 +117,10 @@ private:
     const char *ssid;
     const char *password;
     bool connected = false;
-    WiFiClient client;          // Persistent WiFi client
-    WiFiSecureClient sslClient; // Secure WiFi client
+    WiFiClient client;                   // Persistent WiFi client
+    WiFiSecureClient sslClient;          // Secure WiFi client
+    WiFiClient secondaryClient;          // new secondary HTTP client
+    WiFiSecureClient secondarySslClient; // new secondary HTTPS client
     Preferences preferences;
     bool preferencesInitialized = false; // Track if preferences have been initialized
     void loadNetworks();                 // Load networks from storage
