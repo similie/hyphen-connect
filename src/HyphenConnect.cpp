@@ -25,6 +25,26 @@ bool HyphenConnect::connectionOff()
     return true;
 }
 
+bool HyphenConnect::pause()
+{
+    if (pauseProcessor)
+    {
+        return false;
+    }
+    processor.disconnect();
+    pauseProcessor = true;
+    return true;
+}
+bool HyphenConnect::resume()
+{
+    if (!pauseProcessor)
+    {
+        return false;
+    }
+    pauseProcessor = false;
+    return processor.init();
+}
+
 bool HyphenConnect::setup(int logLevel)
 {
 

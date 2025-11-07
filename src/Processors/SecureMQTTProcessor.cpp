@@ -256,12 +256,12 @@ bool SecureMQTTProcessor::attachCertificates()
 #ifndef INSECURE_MQTT
     for (u_int8_t i = 0; i < CERT_LENGTH; i++)
     {
-        if (certificates[i].isEmpty())
+        if (certificateLengths[i] == 0)
         {
             Log.errorln("Certificate is empty");
             return false;
         }
-        const char *certContentC = certificates[i].c_str();
+        const char *certContentC = certificates[i];
         switch (i)
         {
         case cachedCertificates::CA:
@@ -301,41 +301,22 @@ bool SecureMQTTProcessor::loadCertificates()
 
     if (ca_len && crt_len && key_len)
     {
-        String caContent((const char *)_binary_src_certs_root_ca_pem_start, ca_len);
-        String crtContent((const char *)_binary_src_certs_device_cert_pem_start, crt_len);
-        String keyContent((const char *)_binary_src_certs_private_key_pem_start, key_len);
+        // String caContent((const char *)_binary_src_certs_root_ca_pem_start, ca_len);
+        // String crtContent((const char *)_binary_src_certs_device_cert_pem_start, crt_len);
+        // String keyContent((const char *)_binary_src_certs_private_key_pem_start, key_len);
 
-        certificates[CA] = caContent;
-        certificates[DeviceCertificate] = crtContent;
-        certificates[DevicePrivateKey] = keyContent;
+        certificates[CA] = (const char *)_binary_src_certs_root_ca_pem_start;
+        certificates[DeviceCertificate] = (const char *)_binary_src_certs_device_cert_pem_start;
+        certificates[DevicePrivateKey] = (const char *)_binary_src_certs_private_key_pem_start;
+
+        certificateLengths[CA] = ca_len;
+        certificateLengths[DeviceCertificate] = crt_len;
+        certificateLengths[DevicePrivateKey] = key_len;
+
         certsCached = true;
         Log.noticeln("✅ Loaded embedded certificates from flash.");
         return attachCertificates();
     }
-
-// ✅ Try to use embedded certificates first
-#if defined(_binary_src_certs_root_ca_pem_start)
-    String caContent((const char *)_binary_src_certs_root_ca_pem_start,
-                     (size_t)(_binary_src_certs_root_ca_pem_end - _binary_src_certs_root_ca_pem_start));
-    String certContent((const char *)_binary_src_certs_device_cert_pem_start,
-                       (size_t)(_binary_src_certs_device_cert_pem_end - _binary_src_certs_device_cert_pem_start));
-    String keyContent((const char *)_binary_src_certs_private_key_pem_start,
-                      (size_t)(_binary_src_certs_private_key_pem_end - _binary_src_certs_private_key_pem_start));
-
-    if (!caContent.isEmpty() && !certContent.isEmpty() && !keyContent.isEmpty())
-    {
-        certificates[CA] = caContent;
-        certificates[DeviceCertificate] = certContent;
-        certificates[DevicePrivateKey] = keyContent;
-        certsCached = true;
-        Log.noticeln("✅ Loaded embedded certificates from flash.");
-        return attachCertificates();
-    }
-    else
-    {
-        Log.warningln("⚠️ Embedded certificates missing or empty, falling back to SPIFFS.");
-    }
-#endif
 
     if (!fm.start())
     {
@@ -355,7 +336,8 @@ bool SecureMQTTProcessor::loadCertificates()
         Log.errorln("CA file is empty");
         return false;
     }
-    certificates[CA] = caContent;
+    certificates[CA] = caContent.c_str();
+    certificateLengths[CA] = caContent.length();
     const char *caContentC = caContent.c_str();
     Log.noticeln("Loaded CA certificate:");
     Log.noticeln(caContent.substring(0, 20).c_str());
@@ -371,8 +353,9 @@ bool SecureMQTTProcessor::loadCertificates()
         return false;
     }
 
-    certificates[DeviceCertificate] = certContent;
+    certificates[DeviceCertificate] = certContent.c_str();
     const char *certContentC = certContent.c_str();
+    certificateLengths[DeviceCertificate] = certContent.length();
     Log.noticeln("Loaded device certificate:");
     Log.noticeln(certContent.substring(0, 20).c_str());
     coreDelay(100);
@@ -387,7 +370,8 @@ bool SecureMQTTProcessor::loadCertificates()
         Log.errorln("Private key file is empty");
         return false;
     }
-    certificates[DevicePrivateKey] = keyContent;
+    certificates[DevicePrivateKey] = keyContent.c_str();
+    certificateLengths[DevicePrivateKey] = keyContent.length();
     const char *keyContentC = keyContent.c_str();
     Log.noticeln("Loaded private key:");
     Log.noticeln(keyContent.substring(0, 20).c_str());

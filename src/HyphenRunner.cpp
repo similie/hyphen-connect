@@ -107,6 +107,12 @@ void HyphenRunner::taskEntry(void *pv)
 
 bool HyphenRunner::isStuck(uint32_t timeoutMs) const
 {
+
+    if (hyphen->pauseProcessor)
+    {
+        return false;
+    }
+
     Log.noticeln("Checking if stuck... %lu", (millis() - _lastAliveMs));
     return (millis() - _lastAliveMs) > timeoutMs;
 }

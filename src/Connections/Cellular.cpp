@@ -2,7 +2,7 @@
 
 Cellular::Cellular()
 #ifdef DUMP_AT_COMMANDS
-    : debugger(SerialAT, SerialMon), modem(debugger), gsmClient(modem, 0)
+    : debugger(SerialAT, SerialMon), modem(debugger), gsmClient(modem, 0), secondaryGsmClient(modem, 1)
 #else
     : modem(SerialAT), gsmClient(modem, 0)
 #endif
@@ -26,14 +26,12 @@ Client &Cellular::getClient()
 }
 SecureClient &Cellular::secureClient()
 {
-
     sslClient.setClient(&getClient());
     return sslClient;
 }
 
 Client &Cellular::getNewClient()
 {
-    secondaryGsmClient.init(&getModem(), 0);
     return secondaryGsmClient;
 }
 
@@ -426,6 +424,7 @@ bool Cellular::maintain()
 void Cellular::setClient()
 {
     gsmClient.init(&modem, 0);
+    secondaryGsmClient.init(&modem, 1);
     // gsmClient.
     // if (gsmClient != nullptr)
     // {

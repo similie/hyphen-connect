@@ -79,7 +79,9 @@ private:
             return m;
         }
     };
-    String certificates[CERT_LENGTH];
+    // String certificates[CERT_LENGTH];
+    const char *certificates[CERT_LENGTH];  // pointers to PEM data
+    size_t certificateLengths[CERT_LENGTH]; // lengths of each PEM
     bool certsCached = false;
     enum cachedCertificates
     {

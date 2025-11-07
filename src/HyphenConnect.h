@@ -105,6 +105,8 @@ public:
     void disconnect();
     bool connectionOn();
     bool connectionOff();
+    bool pause();
+    bool resume();
     bool isOnline() { return connectedOn; };
     Client &getClient();
     SecureClient &getSecureClient();
@@ -123,6 +125,7 @@ private:
     LoggingManager logger;
     bool connectedOn = false;
     bool initialSetup = false;
+    bool pauseProcessor = false;
     int loggingLevel = 0;
 #ifdef HYPHEN_THREADED
     bool rebuildingThread = false;
