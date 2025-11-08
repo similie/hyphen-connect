@@ -307,9 +307,16 @@ bool Cellular::reload()
 }
 
 // Call this after your modem object is initialized but before you try to use it
+/**
+ * @brief Factory reset the modem to default settings
+ * @note this function is not having an impact on stuck sims - it has so far been somewhat inert
+ */
 bool Cellular::factoryReset()
-{
-
+{ // just get out of it until we can test it better
+    if (true)
+    {
+        return true;
+    }
     modem.sendAT("+COPS=2"); // deregister from network
     modem.waitResponse(10000L);
     // 3. Reset network selection and mode to auto
@@ -341,7 +348,6 @@ void Cellular::setSimRegistration()
     modem.waitResponse();
     modem.sendAT("+CGREG=2"); // same for GPRS registration
     modem.waitResponse();
-
     // now explicitly ask the SIM to PS-attach
     modem.sendAT("+CGATT=1"); // Packet-domain attach
     modem.waitResponse(5000); // give it up to 5 s
@@ -372,16 +378,12 @@ bool Cellular::initModem()
         return false;
     }
 
-    // Log.noticeln("RESETTING TH EMODEL %s", String(modemReady ? "TRUE" : "FALSE"));
     if (modemReady && connectionAttempts >= maxConnectionAttempts && factoryReset())
     {
         connectionAttempts = 0;
         Log.noticeln("RESTORING MODEM FACTORY DEFAULT");
-        // return false;
     }
     coreDelay(500);
-    // coreDelay(1000);
-
     if (!modem.init())
     {
         Log.errorln("Failed to initialize modem.");
@@ -425,22 +427,10 @@ void Cellular::setClient()
 {
     gsmClient.init(&modem, 0);
     secondaryGsmClient.init(&modem, 1);
-    // gsmClient.
-    // if (gsmClient != nullptr)
-    // {
-    //     return;
-    // }
-    // gsmClient = new TinyGsmClient(modem, CELLULAR_CID);
 }
 
 void Cellular::restore()
 {
-    // sslClient.stop();
-    // gsmClient->flush();
-    // gsmClient->stop();
-    // gsmClient = nullptr;
-    // setClient();
-    // sslClient.setClient(&getClient());
     reload();
 }
 // Connect to the network
@@ -448,8 +438,6 @@ bool Cellular::connect()
 {
     if (!modem.waitForNetwork(20000L))
     {
-
-        // setSimRegistration();
         Log.errorln("Network connection failed.");
         return false;
     }
@@ -459,7 +447,6 @@ bool Cellular::connect()
         return false;
     }
 
-    // gsmClient = nullptr;
     uint8_t count = 0;
     const uint8_t maxRetries = 10;
     connected = false;
@@ -476,15 +463,10 @@ bool Cellular::connect()
 
     if (connected)
     {
-
         Log.noticeln("Network connected. %s", String(connected ? "true" : "false").c_str());
         setClient();
         connectionAttempts = 0;
     }
-    // else if (modem.factoryDefault())
-    // {
-    //     Serial.println("RESTORING MODEM FACTORY DEFAULT");
-    // }
 
     return connected;
 }
@@ -552,7 +534,7 @@ bool Cellular::disableGPS()
 bool Cellular::setupNetwork()
 {
     /**
- *
+ * SIMCOM 7600 Series Network Modes:
  * 2 – Automatic
 13 – GSM Only
 14 – WCDMA Only

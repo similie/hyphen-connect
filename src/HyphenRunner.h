@@ -15,9 +15,7 @@ public:
   static HyphenRunner &get();
   void begin(HyphenConnect *hc);
   bool isAlive() const;
-  // bool isConnected() const;
   void stop();
-  // bool initRequested(); // you can set a flag to request init()
   void restart(HyphenConnect *hc);
   volatile uint32_t _lastAliveMs;
   bool isStuck(uint32_t timeoutMs) const;
