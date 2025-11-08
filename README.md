@@ -19,7 +19,7 @@ HyphenConnect is an open-source library designed to simplify cloud connectivity 
 
 #### Installation
 
-1. Clone the Repository: git clone https://github.com/similie/HyphenConnect.git
+1. Clone the Repository: git clone [git@github.com:similie/hyphen-connect.git](https://github.com/similie/hyphen-connect.git)
 2. Include the Library in Your Project: Copy the HyphenConnect folder into your Arduino libraries directory.
 
 #### Usage
