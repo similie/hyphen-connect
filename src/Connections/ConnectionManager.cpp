@@ -177,14 +177,7 @@ bool ConnectionManager::reconnect()
 bool ConnectionManager::maintain()
 {
     Log.noticeln("Maintaining connection...");
-    if (currentConnection && currentConnection->isConnected())
-    {
-        return true;
-    }
-    else
-    {
-        return reconnect();
-    }
+    return currentConnection && currentConnection->maintain();
 }
 
 Client &ConnectionManager::getClient()

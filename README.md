@@ -166,8 +166,8 @@ CELLULAR_POWER_PIN 25
 CELLULAR_IND_PIN=36
 // the keep alive interval in seconds. This is used to keep the connection alive with the cloud.
 MQTT_KEEP_ALIVE_INTERVAL 30
-// when the keep alive interval also maintains a maintain function that is trigger ever x seconds. The offset allows us to set a multiple i.e. 30 * 1 = 30 seconds.
-MQTT_KEEP_ALIVE_INTERVAL_LOOP_OFFSET 1
+// the interval for calling connection maintenance
+KEEP_ALIVE_INTERVAL 20
 // The default WiFi SSID. In future iteration, we will support connecting the device via Bluetooth to configure the wifi credentials
 DEFAULT_WIFI_SSID ""
 // The default WiFi password.
@@ -186,8 +186,8 @@ MQTT_DEVICE_PRIVATE_KEY "-----BEGIN RSA PRIVATE KEY-----\nMIIDWTCCAkGgAwIBAgIUI7
 MQTT_CA_CERTIFICATE_NAME "/root-ca.pem"
 MQTT_DEVICE_CERTIFICATE_NAME "/device-cert.pem"
 MQTT_DEVICE_PRIVATE_KEY_NAME="/private-key.pem"
-
-HYPHEN_THREADED // define only if you want to run on Core 1
+FUNCTION_COUNT_MAX 20 // max number of functions that hyphen connect supports
+HYPHEN_THREADED // define only if you want to run startup as a thread on Core 1
 NETWORK_MODE 2
 /* SIM7600 Series
 2 – Automatic
@@ -207,6 +207,10 @@ NETWORK_MODE 2
 51 – GSM+LTE Only
 54 – WCDMA+LTE Only
 */
+CELLULAR_TEST_URL "ping.similie.com" // we check a path to reinforce the connection
+CELLULAR_TEST_PORT 80 // the path tcp port, we and not using the secure connection
+CELLULAR_TEST_INTERVAL_MS 60000 // we test every 1 minute and default to isConnected
+NO_CELLULAR_TEST_INTERVAL_MAINTAIN // optional bypass flag to avoid the test interval feature
 ```
 
 ### About Similie

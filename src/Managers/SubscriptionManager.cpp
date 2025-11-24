@@ -4,21 +4,22 @@ SubscriptionManager::SubscriptionManager(Processor &processor) : processor(proce
 {
 }
 
-bool SubscriptionManager::init()
+bool SubscriptionManager::init(bool sendRegistration)
 {
-    subscriptionDone = false;
-    applyRegistration = false;
-    // functionCount = 0;
-    // variableCount = 0;
     bool init = processor.init();
-
     if (!init)
     {
         Log.errorln("Failed to initialize processor");
         return false;
     }
 
-    buildRegistration();
+    if (sendRegistration)
+    {
+        subscriptionDone = false;
+        applyRegistration = false;
+        buildRegistration();
+    }
+    setLastAlive();
     return init;
 }
 
@@ -89,7 +90,7 @@ void SubscriptionManager::setReady()
 void SubscriptionManager::function(const char *topic, std::function<int(const char *)> callback)
 {
 
-    if (functionCount >= 20)
+    if (functionCount >= FUNCTION_COUNT_MAX)
     {
         Log.warningln("Function limit reached");
         return;
@@ -286,6 +287,26 @@ bool SubscriptionManager::registryReady()
 
 bool SubscriptionManager::maintain()
 {
+    return processor.maintain();
+}
+/**
+ * @brief returns true on an interval to keep the connection alive
+ *
+ * @return true - if the keep alive interval is ready
+ */
+bool SubscriptionManager::keepAliveReady()
+{
+    unsigned long now = millis();
+    if (now - lastAlive >= KEEP_ALIVE_INTERVAL_MS)
+    {
+        setLastAlive();
+        return true;
+    }
+    return false;
+}
+
+bool SubscriptionManager::loop()
+{
     if (applyRegistration)
     {
         runRegistration();
@@ -295,10 +316,13 @@ bool SubscriptionManager::maintain()
     {
         sendRegistry();
     }
-    return processor.maintain();
-}
 
-void SubscriptionManager::loop()
-{
     processor.loop();
+
+    if (!keepAliveReady())
+    {
+        return true;
+    }
+
+    return maintain();
 }

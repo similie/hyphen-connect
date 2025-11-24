@@ -106,8 +106,12 @@ public:
     bool connectionOn();
     bool connectionOff();
     bool pause();
+    bool isPaused() { return pauseProcessor; };
     bool resume();
     bool isOnline() { return connectedOn; };
+    unsigned int getConnectAttempts() { return connectAttempts; };
+    void incrementConnectAttempts() { connectAttempts++; };
+    void resetConnectAttempts() { connectAttempts = 0; };
     Client &getClient();
     SecureClient &getSecureClient();
     Client &newClient();
@@ -127,6 +131,7 @@ private:
     bool initialSetup = false;
     bool pauseProcessor = false;
     int loggingLevel = 0;
+    unsigned int connectAttempts = 0;
 #ifdef HYPHEN_THREADED
     bool rebuildingThread = false;
     unsigned long threadCheck = 0;

@@ -13,7 +13,7 @@ SecureMQTTProcessor::SecureMQTTProcessor(Connection &connection)
 bool SecureMQTTProcessor::init()
 {
     initialized = false;
-    health.on();
+    // health.on();
     if (!connection.isConnected())
     {
         return false;
@@ -108,16 +108,6 @@ bool SecureMQTTProcessor::connectServer()
     return connect();
 }
 
-/**
- * @brief returns true on an interval to keep the connection alive
- *
- * @return true - if the keep alive interval is ready
- */
-bool SecureMQTTProcessor::keepAliveReady()
-{
-    return isMaintenanceRunning;
-}
-
 bool SecureMQTTProcessor::cleanupDisconnect()
 {
     Log.errorln("Connection is not established.");
@@ -127,12 +117,9 @@ bool SecureMQTTProcessor::cleanupDisconnect()
 
 bool SecureMQTTProcessor::runMaintenance()
 {
-    Log.noticeln("Running maintenance... %s %s", String(MQTTConnected), String(ready()));
-    isMaintenanceRunning = false;
-    // maintain the connection
-    if (!connection.isConnected())
+    if (!connection.maintain())
     {
-        return cleanupDisconnect();
+        return false;
     }
     MQTTConnected = mqttClient.connected();
     Log.noticeln("MQTT CONNECTION STATUS %s", String(MQTTConnected));
@@ -144,87 +131,11 @@ bool SecureMQTTProcessor::runMaintenance()
     return reconnect();
 }
 
-void SecureMQTTProcessor::setMaintenanceTicker()
-{
-    if (_maintenanceTimer != nullptr)
-    {
-        return resetMaintenanceTicker();
-    }
-    Log.noticeln("Setting up maintenance ticker...");
-    isMaintenanceRunning = false;
-    esp_timer_create_args_t args = {
-        .callback = [](void *ctx)
-        {
-            static_cast<SecureMQTTProcessor *>(ctx)->toggleMaintenance();
-        },
-        .arg = this,
-        .dispatch_method = ESP_TIMER_TASK,
-        .name = "maint-timer"};
-    esp_timer_create(&args, &_maintenanceTimer);
-    esp_timer_start_periodic(_maintenanceTimer, KEEP_ALIVE_INTERVAL * 1000UL);
-}
-
-void SecureMQTTProcessor::resetMaintenanceTicker()
-{
-    stopMaintenanceTicker();
-    setMaintenanceTicker();
-}
-
-void SecureMQTTProcessor::stopMaintenanceTicker()
-{
-    if (_maintenanceTimer == nullptr)
-    {
-        return;
-    }
-    esp_timer_stop(_maintenanceTimer);
-    esp_timer_delete(_maintenanceTimer);
-    _maintenanceTimer = nullptr;
-    isMaintenanceRunning = false;
-}
-
-void SecureMQTTProcessor::threadConnectionMaintenance(void *pv)
-{
-    static_cast<SecureMQTTProcessor *>(pv)->maintain();
-    vTaskDelete(NULL);
-}
-
-void SecureMQTTProcessor::threadConnectionMaintenance()
-{
-    xTaskCreatePinnedToCore(&SecureMQTTProcessor::threadConnectionMaintenance,
-                            "HyphenMaintenance",
-                            4096 / sizeof(StackType_t),
-                            // allocatedStack / sizeof(StackType_t),
-                            this,
-                            tskIDLE_PRIORITY + 1,
-                            &maintenceHandle,
-                            1);
-}
-
-void SecureMQTTProcessor::maintenanceCallback(SecureMQTTProcessor *instance)
-{
-    SecureMQTTProcessor *processor = static_cast<SecureMQTTProcessor *>(instance);
-    processor->toggleMaintenance();
-}
-
-void SecureMQTTProcessor::toggleMaintenance()
-{
-    Log.noticeln("Toggle maintenance...");
-    health.interrogate(); // check if the health is ok. We have this process even if things seem locked up
-    isMaintenanceRunning = true;
-}
-
 bool SecureMQTTProcessor::maintain()
 {
-    // if we are not connected, we need to reconnect, we will check every n seconds
-    if (!keepAliveReady())
-    {
-        return true;
-    }
     maintenanceEvent = true;
-    coreDelay(10);
     // if during this execution the loop is called, we will wait for it to finish
     Log.noticeln("Starting maintenance... %d %d", loopEvent, processing);
-    Log.noticeln("Maintenance locked");
     bool mainained = runMaintenance();
     maintenanceEvent = false;
     return mainained;
@@ -246,7 +157,7 @@ void SecureMQTTProcessor::loop()
         return;
     }
     loopEvent = true;
-    health.loop();
+    // health.loop();
     mqttClient.loop();
     loopEvent = false;
 }
@@ -301,10 +212,6 @@ bool SecureMQTTProcessor::loadCertificates()
 
     if (ca_len && crt_len && key_len)
     {
-        // String caContent((const char *)_binary_src_certs_root_ca_pem_start, ca_len);
-        // String crtContent((const char *)_binary_src_certs_device_cert_pem_start, crt_len);
-        // String keyContent((const char *)_binary_src_certs_private_key_pem_start, key_len);
-
         certificates[CA] = (const char *)_binary_src_certs_root_ca_pem_start;
         certificates[DeviceCertificate] = (const char *)_binary_src_certs_device_cert_pem_start;
         certificates[DevicePrivateKey] = (const char *)_binary_src_certs_private_key_pem_start;
@@ -341,7 +248,6 @@ bool SecureMQTTProcessor::loadCertificates()
     const char *caContentC = caContent.c_str();
     Log.noticeln("Loaded CA certificate:");
     Log.noticeln(caContent.substring(0, 20).c_str());
-    coreDelay(100);
 #ifdef MQTT_DEVICE_CERTIFICATE
     String certContent = String(MQTT_DEVICE_CERTIFICATE);
 #else
@@ -358,7 +264,6 @@ bool SecureMQTTProcessor::loadCertificates()
     certificateLengths[DeviceCertificate] = certContent.length();
     Log.noticeln("Loaded device certificate:");
     Log.noticeln(certContent.substring(0, 20).c_str());
-    coreDelay(100);
 #ifdef MQTT_DEVICE_PRIVATE_KEY
     String keyContent = String(MQTT_DEVICE_PRIVATE_KEY);
 #else
@@ -409,8 +314,6 @@ void SecureMQTTProcessor::restartSSL()
 bool SecureMQTTProcessor::connect()
 {
     connectCount++;
-    health.loop();
-    setMaintenanceTicker();
     return setupSecureConnection();
 }
 
@@ -433,7 +336,7 @@ bool SecureMQTTProcessor::setupSecureConnection()
 #ifndef INSECURE_MQTT
         if (mqttClient.connect(CLIENT_ID, nullptr, nullptr, // no username/password
                                nullptr,                     // no will
-                               0, false, nullptr,
+                               QOS_MQTT, false, nullptr,
                                /* cleanSession: */ false))
         {
             break;
@@ -457,9 +360,9 @@ bool SecureMQTTProcessor::setupSecureConnection()
     {
         if (connectCount >= restorationAttempts)
         {
-            Log.errorln("Restoring IoT connection.");
+            Log.errorln("Restoring IoT certificates connection.");
             connectCount = 0;
-            health.reboot();
+            certsCached = false;
         }
 
         return false;
@@ -474,7 +377,6 @@ bool SecureMQTTProcessor::setupSecureConnection()
     }
     Log.noticeln("MQTT initialized");
     initialized = true;
-    setMaintenanceTicker();
     return MQTTConnected;
 }
 /**
@@ -501,8 +403,7 @@ void SecureMQTTProcessor::stop()
  */
 void SecureMQTTProcessor::disconnect()
 {
-    health.off();
-    stopMaintenanceTicker();
+    // health.off();
     stop();
 }
 /**

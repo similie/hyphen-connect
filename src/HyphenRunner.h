@@ -14,13 +14,11 @@ class HyphenRunner
 public:
   static HyphenRunner &get();
   void begin(HyphenConnect *hc);
-  bool isAlive() const;
   void stop();
   void restart(HyphenConnect *hc);
-  volatile uint32_t _lastAliveMs;
-  bool isStuck(uint32_t timeoutMs) const;
   void loop();
   bool ready();
+  bool sendRegistration = true;
 
 private:
   HyphenRunner();
@@ -45,11 +43,6 @@ private:
   const uint32_t LAST_ALIVE_THRESHOLD = 1000 * 60 * 5; // 10 minutes
   volatile bool initialized = false;
   void rebuildConnection();
-  void tick()
-  {
-    _lastAliveMs = millis();
-  }
-  /** Returns true if runTask() has looped in the last `timeoutMs` milliseconds */
 };
 
 #endif

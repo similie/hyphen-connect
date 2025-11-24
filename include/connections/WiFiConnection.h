@@ -1,6 +1,5 @@
 #ifndef ESP32WIFI_H
 #define ESP32WIFI_H
-
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <Preferences.h>

@@ -25,6 +25,16 @@ NETWORK_MODE 2
 #define GSM_SIM_PIN ""
 #endif
 
+#ifndef CELLULAR_TEST_URL
+#define CELLULAR_TEST_URL "ping.similie.com"
+#endif
+#ifndef CELLULAR_TEST_PORT
+#define CELLULAR_TEST_PORT 80
+#endif
+
+#ifndef CELLULAR_TEST_INTERVAL_MS
+#define CELLULAR_TEST_INTERVAL_MS 90000 // 1.5 minute
+#endif
     enum class SimType {
         SIM7070,
         SIM7600
@@ -222,6 +232,8 @@ public:
     void restore() override;
     bool init();
     bool maintain();
+    bool maintainLocal();
+    bool internetPathTest();
     TinyGsm &getModem();
     Client &getClient() override;
     SecureClient &secureClient() override;
@@ -275,6 +287,7 @@ private:
     static void maintainTask(void *param); // Task function for maintain
     uint32_t maintainIntervalMs = 5000;    // Interval for maintain checks (5 seconds, adjustable)
     uint8_t connectionAttempts = 0;
+    unsigned long lastTestMs = 0;
     const uint8_t maxConnectionAttempts = 5;
     bool initModem();
     void setupPower();

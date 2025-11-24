@@ -11,8 +11,16 @@
 #define REGISTRATION_WAIT_TIME_IN_SECONDS 20 // 5 minutes
 #endif
 
+#ifndef FUNCTION_COUNT_MAX
+#define FUNCTION_COUNT_MAX 20 // maximum number of functions that can be registered
+#endif
+
 #ifndef FUNCTION_REGISTRATION_SECONDS
 #define FUNCTION_REGISTRATION_SECONDS 10 // 5 minutes
+#endif
+
+#ifndef KEEP_ALIVE_INTERVAL
+#define KEEP_ALIVE_INTERVAL 20000 // 20 seconds
 #endif
 // Define custom hash and equal functions for Arduino String
 struct StringHash
@@ -67,13 +75,13 @@ public:
     bool subscribe(const char *topic, std::function<void(const char *, const char *)> callback);
     bool unsubscribe(const char *topic);
     void function(const char *topic, std::function<int(const char *)> callback);
-    // void variable();
-    void loop();
-    bool init();
+    bool loop();
+    bool init(bool sendRegistration = true);
     bool maintain();
     bool publishTopic(String topic, String payload);
     bool publishTopic(const char *topic, uint8_t *buf, size_t length);
     bool isConnected();
+    void setLastAlive() { lastAlive = millis(); }
     void variable(const char *name, int *var);
     void variable(const char *name, long *var);
     void variable(const char *name, String *var);
@@ -81,11 +89,6 @@ public:
     bool ready();
     String runFunction(const char *, const char *);
     String runVariable(const char *, const char *);
-
-    // Hy/Post/Function/<DeviceID>/<FunctionID>/<CallID>
-    // Hy/Post/Function/Result/<DeviceID>/<FunctionID>/<CallID>/
-    // Hy/Post/Function/Register/<DeviceID>
-    // Hy/Post/Variables/Register/<DeviceID>
 
 private:
     Ticker tick;
@@ -104,9 +107,12 @@ private:
     bool registryReady();
     void registerFunctions();
     void sendRegistry();
+    bool keepAliveReady();
+    unsigned long lastAlive = 0;
+    const unsigned long KEEP_ALIVE_INTERVAL_MS = KEEP_ALIVE_INTERVAL * 1000; // Keep-alive interval in seconds
     String getCallId(const char *);
     String getTopicKey(const char *);
-    std::array<std::string, 20> functionTopics;
+    std::array<std::string, FUNCTION_COUNT_MAX> functionTopics;
     u_int8_t functionCount = 0;
     u_int8_t variableCount = 0;
     std::unordered_map<String, VariableEntry, StringHash, StringEqual> variableRegistry;

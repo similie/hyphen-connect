@@ -39,17 +39,16 @@ void HyphenRunner::loop()
 
 void HyphenRunner::processorLoops()
 {
-    if (!connectionStarted)
+    if (!connectionStarted || hyphen->isPaused())
     {
         return;
     }
-
-    hyphen->manager.loop();
-    if (hyphen->manager.maintain())
+    if (hyphen->manager.loop())
     {
         return;
     }
-    begin();
+    Log.infoln(F("[Runner] processorLoops detected connection issue, rebuilding..."));
+    rebuildConnection();
 }
 
 void HyphenRunner::begin()
@@ -63,13 +62,6 @@ void HyphenRunner::begin(HyphenConnect *hc)
 {
     hyphen = hc;
     begin();
-}
-
-bool HyphenRunner::isAlive() const
-{
-    if (!loopHandle)
-        return false;
-    return eTaskGetState(loopHandle) != eDeleted;
 }
 
 void HyphenRunner::stop()
@@ -105,18 +97,6 @@ void HyphenRunner::taskEntry(void *pv)
     static_cast<HyphenRunner *>(pv)->runTask();
 }
 
-bool HyphenRunner::isStuck(uint32_t timeoutMs) const
-{
-
-    if (hyphen->pauseProcessor)
-    {
-        return false;
-    }
-
-    Log.noticeln("Checking if stuck... %lu", (millis() - _lastAliveMs));
-    return (millis() - _lastAliveMs) > timeoutMs;
-}
-
 bool HyphenRunner::initManager()
 {
     if (connectionStarted)
@@ -125,25 +105,27 @@ bool HyphenRunner::initManager()
     }
     while (!hyphen->manager.isConnected() && runConnection)
     {
+        hyphen->incrementConnectAttempts();
         while (!hyphen->connection.isConnected() && !hyphen->connection.init() && runConnection)
         {
             Log.infoln(F("[Runner] connection::init() failed, retry in 500 ms"));
             coreDelay(500);
-            tick();
+            hyphen->incrementConnectAttempts();
         }
-        tick();
         coreDelay(500);
         Log.infoln(F("[Runner] connection::init() succeeded"));
-        while (hyphen->connection.isConnected() && !hyphen->manager.init() && runConnection)
+        while (hyphen->connection.isConnected() && !hyphen->manager.init(sendRegistration) && runConnection)
         {
             Log.infoln(F("[Runner] manager::init() failed, retry in 500 ms"));
             coreDelay(500);
-            tick();
+            hyphen->incrementConnectAttempts();
         }
         Log.infoln(F("[Runner] manager::init() succeeded"));
-        tick();
     }
+    hyphen->resetConnectAttempts();
     connectionStarted = true;
+    sendRegistration = false;
+    hyphen->manager.setLastAlive();
     return true;
 }
 
@@ -151,6 +133,7 @@ void HyphenRunner::rebuildConnection()
 {
     Log.infoln(F("[Runner] rebuilding connection..."));
     runConnection = false;
+    connectionStarted = false;
     coreDelay(300); // wait for the connection to be fully disconnected
     stop();
     coreDelay(100);
@@ -158,10 +141,7 @@ void HyphenRunner::rebuildConnection()
     hyphen->connection.disconnect();
     hyphen->connection.off();
     Log.infoln(F("[Runner] connection::off()"));
-    connectionStarted = false;
-    coreDelay(100);
-    startRunnerTask();
-    Log.infoln(F("[Runner] connection::on()"));
+    begin();
 }
 
 void HyphenRunner::runTask()
@@ -169,7 +149,6 @@ void HyphenRunner::runTask()
     Log.infoln(F("[Runner] starting %s"), String(hyphen->connectedOn));
     unsigned long delaycheck = millis();
     connectionStarted = false;
-
     if (initManager())
     {
         Log.infoln(F("[Runner] connection started"));

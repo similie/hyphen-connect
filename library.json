@@ -1,6 +1,6 @@
 {
   "name": "HyphenConnect",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "license": "MIT",
   "keywords": ["ESP32", "Internet Connectivity", "MQTT", "Cellular", "WiFi"],
   "description": "Connects the ESP32 to the internet using WiFi or Cellular and offers MQTT-backed cloud callbacks and variable registration.",
@@ -17,7 +17,7 @@
     "ArduinoJson": "^7.2.0",
     "thijse/ArduinoLog": "^1.1.1",
     "bakercp/CRC32": "^2.0.0",
-    "PubSubClient": "^2.8.0",
+    "hmueller01/PubSubClient3": "^3.2.1",
     "alkonosst/SSLClientESP32": "^2.0.3",
     "vshymanskyy/StreamDebugger": "^1.0.1",
     "vshymanskyy/TinyGSM": "^0.12.0"

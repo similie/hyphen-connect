@@ -259,7 +259,7 @@ void Cellular::maintainTask(void *param)
     Cellular *cellular = static_cast<Cellular *>(param);
     while (true)
     {
-        cellular->maintain();                                          // Call maintain function to check and reconnect
+        cellular->maintainLocal();                                     // Call maintain function to check and reconnect
         vTaskDelay(cellular->maintainIntervalMs / portTICK_PERIOD_MS); // Delay between checks
     }
 }
@@ -409,9 +409,8 @@ bool Cellular::setApn(const char *setApn)
     return reload();
 }
 
-bool Cellular::maintain()
+bool Cellular::maintainLocal()
 {
-    disconnect();
     if (!modem.testAT())
     {
         return false;
@@ -422,6 +421,76 @@ bool Cellular::maintain()
         return false;
     }
     return connect();
+}
+
+bool Cellular::internetPathTest()
+{
+    // const char *testHost = "tls-v1-2.badssl.com"; // reliable public endpoint
+    const char *testHost = CELLULAR_TEST_URL;
+    // const uint16_t testPort = 1012;               // TLS port for this host
+    const uint16_t testPort = CELLULAR_TEST_PORT; // TLS port for this host
+    const unsigned long timeoutMs = 10000UL;      // 10 second timeout
+
+    // Use a “new” client to avoid interfering with main client
+    Client &rawClient = getNewClient();
+    // SecureClient &sslClient = getNewSecureClient();
+    // sslClient.setClient(&rawClient);
+
+    rawClient.setTimeout(timeoutMs / 1000);
+
+    Log.noticeln("Internet path test: connecting to %s:%u", testHost, testPort);
+    if (!rawClient.connect(testHost, testPort))
+    {
+        Log.errorln("Internet path test: connect to %s:%u failed", testHost, testPort);
+        return false;
+    }
+
+    // Optionally send a minimal HTTP HEAD request — this ensures data path is working
+    // Minimal HTTP HEAD request
+    String req = String("HEAD / HTTP/1.1\r\nHost: ") + testHost +
+                 "\r\nConnection: close\r\n\r\n";
+    rawClient.print(req);
+
+    unsigned long startMs = millis();
+    while (millis() - startMs < timeoutMs)
+    {
+        if (rawClient.available())
+        {
+            String line = rawClient.readStringUntil('\n');
+            Log.noticeln("Internet path test: got response: %s", line.c_str());
+            rawClient.stop();
+            return true;
+        }
+        delay(10);
+    }
+
+    Log.warningln("Internet path test: no response within %lu ms", timeoutMs);
+    rawClient.stop();
+    return false;
+}
+
+bool Cellular::maintain()
+{
+#ifdef NO_CELLULAR_TEST_INTERVAL_MAINTAIN
+    return isConnected();
+#else
+
+    Log.noticeln("Maintaining cellular connection...");
+    unsigned long now = millis();
+    if (lastTestMs != 0 && now - lastTestMs < CELLULAR_TEST_INTERVAL_MS)
+    {
+        return isConnected(); // Skip test if interval not reached
+    }
+
+    lastTestMs = now;
+
+    if (!internetPathTest())
+    {
+        return false;
+    }
+    return true;
+
+#endif
 }
 void Cellular::setClient()
 {

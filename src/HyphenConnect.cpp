@@ -57,9 +57,6 @@ bool HyphenConnect::setup(int logLevel)
     }
 
 #ifdef HYPHEN_THREADED
-    // Tell the runner to perform manager.init()
-    // return runner.initRequested();
-
     return connectionOn();
 #endif
 
@@ -84,8 +81,15 @@ void HyphenConnect::loop()
 #ifdef HYPHEN_THREADED
     runner.loop();
 #else
-    // Single-threaded: we must call the loop ourselves
-    manager.loop();
+    // if our loop even returns true, we are done for this cycle
+    if (manager.loop())
+    {
+        return;
+    }
+    // otherwise we attempt to restart the services
+    disconnect();
+    connectionOn = true;
+    manager.init();
 #endif
 }
 
@@ -108,12 +112,11 @@ bool HyphenConnect::publishTopic(const String &topic,
     {
         return false;
     }
-#elif
+#endif
     if (!connectedOn)
     {
         return false;
     }
-#endif
     return manager.publishTopic(topic, payload);
 }
 
@@ -124,12 +127,11 @@ bool HyphenConnect::publishTopic(const char *topic, uint8_t *buf, size_t length)
     {
         return false;
     }
-#elif
+#endif
     if (!connectedOn)
     {
         return false;
     }
-#endif
     return manager.publishTopic(topic, buf, length);
 }
 

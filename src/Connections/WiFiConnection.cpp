@@ -212,12 +212,7 @@ bool WiFiConnection::keepAlive(uint8_t maxRetries)
 // Maintain the connection (reconnect if disconnected)
 bool WiFiConnection::maintain()
 {
-    if (!isConnected())
-    {
-        return connect();
-    }
-
-    return true;
+    return isConnected();
 }
 
 // Return a pointer to the WiFi client

@@ -26,10 +26,6 @@ extern const uint8_t _binary_src_certs_private_key_pem_end[] asm("_binary_src_ce
 #define MQTT_KEEP_ALIVE_INTERVAL 30 // seconds
 #endif
 
-#ifndef MQTT_KEEP_ALIVE_INTERVAL_LOOP_OFFSET
-#define MQTT_KEEP_ALIVE_INTERVAL_LOOP_OFFSET 1 // seconds
-#endif
-
 #ifndef MQTT_CA_CERTIFICATE_NAME
 #define MQTT_CA_CERTIFICATE_NAME "/root-ca.pem" // the root certificate for the mqtt connection
 #endif
@@ -40,6 +36,14 @@ extern const uint8_t _binary_src_certs_private_key_pem_end[] asm("_binary_src_ce
 
 #ifndef MQTT_DEVICE_PRIVATE_KEY_NAME
 #define MQTT_DEVICE_PRIVATE_KEY_NAME "/private-key.pem" // the root certificate for the mqtt connection
+#endif
+
+#ifndef MAINTENANCE_LOCKUP_THRESHOLD_MS
+#define MAINTENANCE_LOCKUP_THRESHOLD_MS MQTT_KEEP_ALIVE_INTERVAL * 2 * 1000
+#endif
+
+#ifndef QOS_MQTT
+#define QOS_MQTT 0
 #endif
 
 #define CERT_LENGTH 3 // should not be changed
@@ -65,7 +69,9 @@ private:
     volatile bool loopEvent = false;
     volatile bool maintenanceEvent = false;
     volatile bool MQTTConnected = false;
-    HealthCheck health;
+    // unsigned long _lastMaintenanceMs = 0;
+    uint32_t _maintenanceFailures = 0;
+    // HealthCheck health;
     bool waitForMaintenance();
     bool preProcesss();
     bool loopNotReady();
@@ -100,8 +106,7 @@ private:
     LightManager light;
     TaskHandle_t maintainConnectHandle = NULL;
     uint8_t connectCount = 0;
-    const uint16_t KEEP_ALIVE = MQTT_KEEP_ALIVE_INTERVAL;                                              // Keep-alive interval in seconds
-    const unsigned int KEEP_ALIVE_INTERVAL = KEEP_ALIVE * MQTT_KEEP_ALIVE_INTERVAL_LOOP_OFFSET * 1000; // Keep-alive interval in seconds
+    const uint16_t KEEP_ALIVE = MQTT_KEEP_ALIVE_INTERVAL; // Keep-alive interval in seconds
     const char *CLIENT_ID = DEVICE_PUBLIC_ID;
     bool keepAliveReady();
     const uint8_t MAX_CONNECTION_ATTEMPTS = 5;
@@ -124,21 +129,21 @@ private:
     bool subscribeToTopic(const char *topic);
     bool unsubscribeToTopic(const char *topic);
     bool runMaintenance();
-    void threadConnectionMaintenance();
-    static void maintenanceCallback(SecureMQTTProcessor *instance);
-    static void threadConnectionMaintenance(void *pv);
-    void toggleMaintenance();
+    // void threadConnectionMaintenance();
+    // static void maintenanceCallback(SecureMQTTProcessor *instance);
+    // static void threadConnectionMaintenance(void *pv);
+    // void toggleMaintenance();
     bool isMaintenanceRunning = false;
     // bool maintaining = false;
     const size_t restorationAttempts = 5;
     Ticker _keepAliveTicker;
     TaskHandle_t maintenceHandle = nullptr;
     esp_timer_handle_t _maintenanceTimer;
-    void stopMaintenanceTicker();
-    void setMaintenanceTicker();
-    void resetMaintenanceTicker();
-    template <class TArg>
-    void attach(unsigned long seconds, void (*callback)(TArg), TArg arg);
+    // void stopMaintenanceTicker();
+    // void setMaintenanceTicker();
+    // void resetMaintenanceTicker();
+    // template <class TArg>
+    // void attach(unsigned long seconds, void (*callback)(TArg), TArg arg);
 };
 
 #endif
