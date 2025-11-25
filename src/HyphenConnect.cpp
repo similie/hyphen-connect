@@ -14,14 +14,19 @@ HyphenConnect::HyphenConnect(ConnectionType mode)
 bool HyphenConnect::connectionOn()
 {
     connectedOn = true;
+#ifdef HYPHEN_THREADED
     runner.begin(this);
+#else
+    return manager.init();
+#endif
     return true;
 }
 bool HyphenConnect::connectionOff()
 {
-    connectedOn = false;
     disconnect();
     connection.off();
+    // this way the next time we do not send the registration event
+    runner.noRegistration();
     return true;
 }
 
@@ -158,13 +163,13 @@ bool HyphenConnect::isConnected()
 
 void HyphenConnect::disconnect()
 {
-
+    connectedOn = false;
 #ifdef HYPHEN_THREADED
-    // runner.stop();
+    runner.breakConnector();
+    coreDelay(600);
 #endif
     processor.disconnect();
     connection.disconnect();
-    connectedOn = false;
 }
 SecureClient &HyphenConnect::getSecureClient() { return connection.secureClient(); }
 Client &HyphenConnect::getClient() { return connection.getClient(); }

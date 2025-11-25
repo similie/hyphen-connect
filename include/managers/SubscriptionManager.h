@@ -8,7 +8,7 @@
 #include "Ticker.h"
 #include "managers/CoreDelay.h"
 #ifndef REGISTRATION_WAIT_TIME_IN_SECONDS
-#define REGISTRATION_WAIT_TIME_IN_SECONDS 20 // 5 minutes
+#define REGISTRATION_WAIT_TIME_IN_SECONDS 20
 #endif
 
 #ifndef FUNCTION_COUNT_MAX
@@ -16,11 +16,11 @@
 #endif
 
 #ifndef FUNCTION_REGISTRATION_SECONDS
-#define FUNCTION_REGISTRATION_SECONDS 10 // 5 minutes
+#define FUNCTION_REGISTRATION_SECONDS 10
 #endif
 
 #ifndef KEEP_ALIVE_INTERVAL
-#define KEEP_ALIVE_INTERVAL 20000 // 20 seconds
+#define KEEP_ALIVE_INTERVAL 20 // 20 seconds
 #endif
 // Define custom hash and equal functions for Arduino String
 struct StringHash
@@ -98,7 +98,7 @@ private:
     bool checkReady = false;
     bool subscriptionDone = false;
     bool applyRegistration = false;
-
+    bool sendRegistration = true;
     void runRegistration();
     static void runRegistrationCallback(SubscriptionManager *instance);
     void buildRegistration();
@@ -123,14 +123,10 @@ private:
     Processor &processor;
 
     String registrationTopic = String(MQTT_TOPIC_BASE) + "Post/Register/" + deviceId;
-
     String functionTopic = String(MQTT_TOPIC_BASE) + "Post/Function/" + deviceId + "/#";
     String functionResultsTopic = String(MQTT_TOPIC_BASE) + "Post/Function/Result/" + deviceId;
-    // String functionRegistrationTopic = String(MQTT_TOPIC_BASE) + "Post/Function/Register/" + deviceId;
-
     String variableTopic = String(MQTT_TOPIC_BASE) + "Post/Variable/" + deviceId + "/#";
     String variableResultsTopic = String(MQTT_TOPIC_BASE) + "Post/Variable/Result/" + deviceId;
-    // String variableRegistrationTopic = String(MQTT_TOPIC_BASE) + "Post/Variable/Register/" + deviceId;
 };
 
 #endif

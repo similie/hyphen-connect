@@ -13,12 +13,13 @@ bool SubscriptionManager::init(bool sendRegistration)
         return false;
     }
 
+    this->sendRegistration = sendRegistration;
+    applyRegistration = false;
     if (sendRegistration)
     {
         subscriptionDone = false;
-        applyRegistration = false;
-        buildRegistration();
     }
+    buildRegistration();
     setLastAlive();
     return init;
 }
@@ -34,6 +35,11 @@ void SubscriptionManager::runRegistration()
     processor.subscribe(variableTopic.c_str(), [this](const char *topic, const char *payload)
                         { variableCallback(topic, payload); });
 
+    if (!sendRegistration)
+    {
+        subscriptionDone = true;
+        return;
+    }
     registerFunctions();
 }
 
@@ -287,6 +293,7 @@ bool SubscriptionManager::registryReady()
 
 bool SubscriptionManager::maintain()
 {
+    Log.infoln("Running maintainance");
     return processor.maintain();
 }
 /**

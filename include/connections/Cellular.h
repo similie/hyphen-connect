@@ -281,6 +281,7 @@ private:
     void setClient();
     const char *gprsUser = "";
     const char *gprsPass = "";
+    bool powerOn = false;
     uint8_t keepAliveInterval; // Store the delay interval in seconds
     TaskHandle_t keepAliveHandle = NULL;
     TaskHandle_t maintainHandle = NULL;    // Task handle for maintain task

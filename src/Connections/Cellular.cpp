@@ -287,6 +287,7 @@ bool Cellular::on()
 {
     setupPower();
     SerialAT.begin(UART_BAUD, SERIAL_8N1, CELLULAR_PIN_RX, CELLULAR_PIN_TX);
+    powerOn = true;
     return initModem();
 }
 // Turn off the modem
@@ -295,6 +296,7 @@ bool Cellular::off()
     modem.poweroff();
     connected = false;
     digitalWrite(CELLULAR_POWER_PIN, LOW);
+    powerOn = false;
     return true;
 }
 
@@ -362,6 +364,10 @@ bool Cellular::initModem()
     bool modemReady = false;
     while (millis() - startTime < 60000)
     { // Wait up to 60 seconds
+        if (!powerOn)
+        {
+            break;
+        }
         Log.noticeln("Waiting for modem to be ready...");
         if (modem.testAT(1000U))
         { // Check if modem responds

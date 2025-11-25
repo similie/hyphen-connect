@@ -119,12 +119,21 @@ bool HyphenRunner::initManager()
             Log.infoln(F("[Runner] manager::init() failed, retry in 500 ms"));
             coreDelay(500);
             hyphen->incrementConnectAttempts();
+            if (!hyphen->connection.maintain())
+            {
+                break;
+            }
         }
         Log.infoln(F("[Runner] manager::init() succeeded"));
     }
-    hyphen->resetConnectAttempts();
-    connectionStarted = true;
-    sendRegistration = false;
+
+    if (runConnection)
+    {
+        hyphen->resetConnectAttempts();
+        connectionStarted = true;
+        sendRegistration = false;
+    }
+
     hyphen->manager.setLastAlive();
     return true;
 }
@@ -132,7 +141,7 @@ bool HyphenRunner::initManager()
 void HyphenRunner::rebuildConnection()
 {
     Log.infoln(F("[Runner] rebuilding connection..."));
-    runConnection = false;
+    breakConnector();
     connectionStarted = false;
     coreDelay(300); // wait for the connection to be fully disconnected
     stop();

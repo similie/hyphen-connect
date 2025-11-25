@@ -19,6 +19,9 @@ public:
   void loop();
   bool ready();
   bool sendRegistration = true;
+  void noRegistration() { sendRegistration = false; };
+  void withRegistration() { sendRegistration = true; };
+  void breakConnector() { runConnection = false; };
 
 private:
   HyphenRunner();
