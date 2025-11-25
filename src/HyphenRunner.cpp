@@ -121,6 +121,7 @@ bool HyphenRunner::initManager()
             hyphen->incrementConnectAttempts();
             if (!hyphen->connection.maintain())
             {
+                hyphen->connection.off();
                 break;
             }
         }

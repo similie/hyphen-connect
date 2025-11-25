@@ -489,8 +489,7 @@ bool Cellular::maintain()
     }
 
     lastTestMs = now;
-
-    if (!internetPathTest())
+    if (!isConnected() || !internetPathTest())
     {
         return false;
     }

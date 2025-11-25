@@ -363,6 +363,8 @@ bool SecureMQTTProcessor::setupSecureConnection()
             Log.errorln("Restoring IoT certificates connection.");
             connectCount = 0;
             certsCached = false;
+            disconnect();
+            connection.disconnect();
         }
 
         return false;
