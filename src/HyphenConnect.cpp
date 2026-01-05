@@ -11,6 +11,22 @@ HyphenConnect::HyphenConnect(ConnectionType mode)
 {
 }
 
+void HyphenConnect::staMode()
+{
+#if defined(HYPHEN_WIFI_AP_ENABLE) && HYPHEN_WIFI_AP_ENABLE == 1
+    WiFiConnection &wifi = (WiFiConnection &)connection.getConnection(ConnectionClass::WIFI);
+    wifi.on();
+#endif
+}
+
+void HyphenConnect::staModeOff()
+{
+#if defined(HYPHEN_WIFI_AP_ENABLE) && HYPHEN_WIFI_AP_ENABLE == 1
+    WiFiConnection &wifi = (WiFiConnection &)connection.getConnection(ConnectionClass::WIFI);
+    wifi.off();
+#endif
+}
+
 bool HyphenConnect::connectionOn()
 {
     connectedOn = true;
@@ -19,12 +35,14 @@ bool HyphenConnect::connectionOn()
 #else
     return manager.init();
 #endif
+    staMode();
     return true;
 }
 bool HyphenConnect::connectionOff()
 {
     disconnect();
     connection.off();
+    staModeOff();
     // this way the next time we do not send the registration event
     runner.noRegistration();
     return true;

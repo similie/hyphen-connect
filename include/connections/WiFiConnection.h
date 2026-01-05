@@ -124,7 +124,6 @@ private:
     bool preferencesInitialized = false; // Track if preferences have been initialized
     void loadNetworks();                 // Load networks from storage
     void saveNetworks();                 // Save networks to storage
-
 public:
     WiFiConnection();
     WiFiConnection(const char *ssid, const char *password);

@@ -122,6 +122,9 @@ public:
     ConnectionManager &getConnectionManager();
     GPSData getLocation();
     // accessors…
+    void staMode();
+    void staModeOff();
+
 private:
     ConnectionManager connection;
     SecureMQTTProcessor processor;

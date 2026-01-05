@@ -158,7 +158,84 @@ bool WiFiConnection::isConnected()
 // Power on WiFi
 bool WiFiConnection::on()
 {
+#if defined(HYPHEN_WIFI_AP_ENABLE) && HYPHEN_WIFI_AP_ENABLE == 1
+    // AP + STA so we can host camera LAN while also using WiFi backhaul
+    WiFi.mode(WIFI_AP_STA);
+
+#ifndef HYPHEN_WIFI_AP_IP_0
+#define HYPHEN_WIFI_AP_IP_0 192
+#endif
+#ifndef HYPHEN_WIFI_AP_IP_1
+#define HYPHEN_WIFI_AP_IP_1 168
+#endif
+#ifndef HYPHEN_WIFI_AP_IP_2
+#define HYPHEN_WIFI_AP_IP_2 4
+#endif
+#ifndef HYPHEN_WIFI_AP_IP_3
+#define HYPHEN_WIFI_AP_IP_3 1
+#endif
+#ifndef HYPHEN_WIFI_AP_MASK_0
+#define HYPHEN_WIFI_AP_MASK_0 255
+#endif
+#ifndef HYPHEN_WIFI_AP_MASK_1
+#define HYPHEN_WIFI_AP_MASK_1 255
+#endif
+#ifndef HYPHEN_WIFI_AP_MASK_2
+#define HYPHEN_WIFI_AP_MASK_2 255
+#endif
+#ifndef HYPHEN_WIFI_AP_MASK_3
+#define HYPHEN_WIFI_AP_MASK_3 0
+#endif
+
+#ifndef HYPHEN_WIFI_AP_SSID
+#define HYPHEN_WIFI_AP_SSID "Hyphen-" + DEVICE_PUBLIC_ID
+#endif
+#ifndef HYPHEN_WIFI_AP_PASS
+#define HYPHEN_WIFI_AP_PASS "hyphen1234"
+#endif
+
+#ifndef HYPHEN_HIDE_WIFI_AP
+#define HYPHEN_HIDE_WIFI_AP 0
+#endif
+
+    // Configure + start AP
+    IPAddress apIP(
+        HYPHEN_WIFI_AP_IP_0, HYPHEN_WIFI_AP_IP_1, HYPHEN_WIFI_AP_IP_2, HYPHEN_WIFI_AP_IP_3);
+    IPAddress apGW = apIP;
+    IPAddress apMask(
+        HYPHEN_WIFI_AP_MASK_0, HYPHEN_WIFI_AP_MASK_1, HYPHEN_WIFI_AP_MASK_2, HYPHEN_WIFI_AP_MASK_3);
+
+    WiFi.softAPConfig(apIP, apGW, apMask);
+
+    const char *ssid = HYPHEN_WIFI_AP_SSID;
+    const char *pass = HYPHEN_WIFI_AP_PASS;
+
+    int ch =
+#ifdef HYPHEN_WIFI_AP_CHANNEL
+        HYPHEN_WIFI_AP_CHANNEL
+#else
+        6
+#endif
+        ;
+
+    int maxClients =
+#ifdef HYPHEN_WIFI_AP_MAX_CLIENTS
+        HYPHEN_WIFI_AP_MAX_CLIENTS
+#else
+        4
+#endif
+        ;
+
+    bool ok = WiFi.softAP(ssid, pass, ch, HYPHEN_HIDE_WIFI_AP /*hidden*/, maxClients);
+
+    Log.notice(F("WiFi AP %s SSID=%s IP=%s" CR),
+               ok ? "OK" : "FAIL",
+               ssid,
+               WiFi.softAPIP().toString().c_str());
+#else
+    // Default legacy behavior
     WiFi.mode(WIFI_STA);
+#endif
     return true;
 }
 
