@@ -188,7 +188,7 @@ bool WiFiConnection::on()
 #endif
 
 #ifndef HYPHEN_WIFI_AP_SSID
-#define HYPHEN_WIFI_AP_SSID "Hyphen-" + DEVICE_PUBLIC_ID
+#define HYPHEN_WIFI_AP_SSID String("Hyphen-") + DEVICE_PUBLIC_ID
 #endif
 #ifndef HYPHEN_WIFI_AP_PASS
 #define HYPHEN_WIFI_AP_PASS "hyphen1234"
@@ -206,8 +206,8 @@ bool WiFiConnection::on()
         HYPHEN_WIFI_AP_MASK_0, HYPHEN_WIFI_AP_MASK_1, HYPHEN_WIFI_AP_MASK_2, HYPHEN_WIFI_AP_MASK_3);
 
     WiFi.softAPConfig(apIP, apGW, apMask);
-
-    const char *ssid = HYPHEN_WIFI_AP_SSID;
+    String ssidValue = HYPHEN_WIFI_AP_SSID;
+    const char *ssid = ssidValue.c_str();
     const char *pass = HYPHEN_WIFI_AP_PASS;
 
     int ch =
