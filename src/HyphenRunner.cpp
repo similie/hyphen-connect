@@ -1,5 +1,16 @@
 #include "HyphenRunner.h"
 #include "HyphenConnect.h"
+#include "Backoff.h"
+
+// Reconnect backoff bounds. Attempts are unlimited (a field device must keep
+// trying), but the delay between them grows exponentially from BASE up to MAX so
+// an outage doesn't become a reconnect storm against the broker/modem.
+#ifndef HYPHEN_RECONNECT_BACKOFF_BASE_MS
+#define HYPHEN_RECONNECT_BACKOFF_BASE_MS 500
+#endif
+#ifndef HYPHEN_RECONNECT_BACKOFF_MAX_MS
+#define HYPHEN_RECONNECT_BACKOFF_MAX_MS 30000
+#endif
 HyphenRunner &HyphenRunner::get()
 {
     static HyphenRunner inst;
@@ -108,16 +119,22 @@ bool HyphenRunner::initManager()
         hyphen->incrementConnectAttempts();
         while (!hyphen->connection.isConnected() && !hyphen->connection.init() && runConnection)
         {
-            Log.infoln(F("[Runner] connection::init() failed, retry in 500 ms"));
-            coreDelay(500);
+            unsigned long backoff = hyphen::backoff::delayMs(
+                hyphen->getConnectAttempts(), HYPHEN_RECONNECT_BACKOFF_BASE_MS,
+                HYPHEN_RECONNECT_BACKOFF_MAX_MS);
+            Log.infoln(F("[Runner] connection::init() failed, retry in %lu ms"), backoff);
+            coreDelay(backoff);
             hyphen->incrementConnectAttempts();
         }
         coreDelay(500);
         Log.infoln(F("[Runner] connection::init() succeeded"));
         while (hyphen->connection.isConnected() && !hyphen->manager.init(sendRegistration) && runConnection)
         {
-            Log.infoln(F("[Runner] manager::init() failed, retry in 500 ms"));
-            coreDelay(500);
+            unsigned long backoff = hyphen::backoff::delayMs(
+                hyphen->getConnectAttempts(), HYPHEN_RECONNECT_BACKOFF_BASE_MS,
+                HYPHEN_RECONNECT_BACKOFF_MAX_MS);
+            Log.infoln(F("[Runner] manager::init() failed, retry in %lu ms"), backoff);
+            coreDelay(backoff);
             hyphen->incrementConnectAttempts();
             if (!hyphen->connection.maintain())
             {

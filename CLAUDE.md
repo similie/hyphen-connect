@@ -68,6 +68,8 @@ Key abstractions (each has a pure-virtual base; add a new transport by implement
 
 The reconnect logic hinges on a boolean convention: **`SubscriptionManager::loop()` returns `false` to signal the connection is broken**, which makes the caller tear down and rebuild the stack. `true` = healthy, keep looping. Preserve this when editing any `loop()`/`maintain()` in the chain.
 
+**Reconnect backoff:** `HyphenRunner::initManager()` is the actual reconnect driver. Its retry loops space attempts with `hyphen::backoff::delayMs()` (`include/Backoff.h`) keyed on the existing `getConnectAttempts()` counter — exponential from `HYPHEN_RECONNECT_BACKOFF_BASE_MS` (500 ms) up to `HYPHEN_RECONNECT_BACKOFF_MAX_MS` (30 s), unlimited attempts but no storm. The counter resets on a successful connect (`resetConnectAttempts()`), so the backoff resets too. The schedule is pure and host-tested (`test/native/test_backoff`).
+
 ### Threading model (`HYPHEN_THREADED`)
 
 - **Defined** (the default in `platformio.ini`): connection bring-up and the processing loop run on a dedicated FreeRTOS task pinned to **Core 0**, driven by the **`HyphenRunner`** singleton (`src/HyphenRunner.*`). `HyphenConnect::loop()` just calls `runner.loop()`. On a detected failure, `HyphenRunner::rebuildConnection()` tears down and re-inits the whole stack.

@@ -564,7 +564,11 @@ bool SecureMQTTProcessor::unsubscribe(const char *topic)
  */
 void SecureMQTTProcessor::mqttCallback(char *topic, byte *payload, unsigned int length)
 {
-    String message = "";
+    // Reserve once instead of growing char-by-char: every inbound cloud message
+    // ran ~log2(len) reallocations, churning the heap. length is bounded by
+    // MQTT_MAX_PACKET_SIZE, so a single up-front allocation is cheap and safe.
+    String message;
+    message.reserve(length);
     for (unsigned int i = 0; i < length; i++)
     {
         char c = (char)payload[i];
