@@ -111,7 +111,7 @@ void HyphenConnect::loop()
     }
     // otherwise we attempt to restart the services
     disconnect();
-    connectionOn = true;
+    connectedOn = true;
     manager.init();
 #endif
 }

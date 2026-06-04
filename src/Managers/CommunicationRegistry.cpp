@@ -149,7 +149,7 @@ bool CommunicationRegistry::unregisterCallback(const std::string &topic)
 
     size_t i = idx;
     // 3) Shift all later entries in the callbacks[] array left by one
-    for (i; i + 1 < callbackCount; i++)
+    for (; i + 1 < callbackCount; i++)
     {
         if (callbacks[i + 1].empty())
         {

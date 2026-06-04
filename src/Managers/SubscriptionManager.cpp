@@ -257,16 +257,14 @@ bool SubscriptionManager::publishTopic(const char *topic, uint8_t *buf, size_t l
     return processor.publish(topic, buf, length);
 }
 
-void SubscriptionManager::sendRegistry()
+String SubscriptionManager::buildRegistryPayload()
 {
-    checkReady = false;
     JsonDocument doc;
     doc["id"] = deviceId;
     JsonArray funArray = doc["functions"].to<JsonArray>();
     JsonArray varArray = doc["variables"].to<JsonArray>();
     doc["functionCount"] = functionCount;
     doc["variableCount"] = variableCount;
-    String variables[variableCount];
     for (int i = 0; i < functionCount; i++)
     {
         funArray.add(functionTopics[i]);
@@ -277,6 +275,13 @@ void SubscriptionManager::sendRegistry()
     }
     String resultStr;
     serializeJson(doc, resultStr);
+    return resultStr;
+}
+
+void SubscriptionManager::sendRegistry()
+{
+    checkReady = false;
+    String resultStr = buildRegistryPayload();
     coreDelay(500);
     if (!publishTopic(registrationTopic, resultStr.c_str()))
     {

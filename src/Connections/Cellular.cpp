@@ -253,17 +253,6 @@ bool Cellular::init()
     return false;
 }
 
-// FreeRTOS task function for maintain. Not used in this implementation
-void Cellular::maintainTask(void *param)
-{
-    Cellular *cellular = static_cast<Cellular *>(param);
-    while (true)
-    {
-        cellular->maintainLocal();                                     // Call maintain function to check and reconnect
-        vTaskDelay(cellular->maintainIntervalMs / portTICK_PERIOD_MS); // Delay between checks
-    }
-}
-
 bool Cellular::powerSave(bool on)
 {
     return setFunctionality((int)on);
@@ -362,8 +351,8 @@ bool Cellular::initModem()
     Log.noticeln("Connection attempt: %d", connectionAttempts);
     unsigned long startTime = millis();
     bool modemReady = false;
-    while (millis() - startTime < 60000)
-    { // Wait up to 60 seconds
+    while (millis() - startTime < MODEM_READY_TIMEOUT_MS)
+    { // Wait up to MODEM_READY_TIMEOUT_MS for the modem to answer AT
         if (!powerOn)
         {
             break;
@@ -415,20 +404,6 @@ bool Cellular::setApn(const char *setApn)
     return reload();
 }
 
-bool Cellular::maintainLocal()
-{
-    if (!modem.testAT())
-    {
-        return false;
-    }
-
-    if (!setupNetwork())
-    {
-        return false;
-    }
-    return connect();
-}
-
 bool Cellular::internetPathTest()
 {
     // const char *testHost = "tls-v1-2.badssl.com"; // reliable public endpoint
@@ -448,6 +423,7 @@ bool Cellular::internetPathTest()
     if (!rawClient.connect(testHost, testPort))
     {
         Log.errorln("Internet path test: connect to %s:%u failed", testHost, testPort);
+        rawClient.stop(); // release the socket even on a failed connect
         return false;
     }
 
@@ -510,7 +486,7 @@ void Cellular::restore()
 // Connect to the network
 bool Cellular::connect()
 {
-    if (!modem.waitForNetwork(20000L))
+    if (!modem.waitForNetwork(NETWORK_REGISTRATION_TIMEOUT_MS))
     {
         Log.errorln("Network connection failed.");
         return false;
@@ -522,7 +498,7 @@ bool Cellular::connect()
     }
 
     uint8_t count = 0;
-    const uint8_t maxRetries = 10;
+    const uint8_t maxRetries = NETWORK_ATTACH_RETRIES;
     connected = false;
     while (!connected && count < maxRetries)
     {

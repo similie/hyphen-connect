@@ -113,8 +113,8 @@ private:
 
     WiFiNetwork networks[10];
     int networkCount; // Number of networks stored
-    const char *ssid;
-    const char *password;
+    const char *ssid = nullptr;
+    const char *password = nullptr;
     bool connected = false;
     WiFiClient client;                   // Persistent WiFi client
     WiFiSecureClient sslClient;          // Secure WiFi client

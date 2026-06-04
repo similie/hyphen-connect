@@ -12,7 +12,6 @@ HyphenRunner::HyphenRunner()
 
 void HyphenRunner::startRunnerTask()
 {
-    eg = xEventGroupCreate();
     runConnection = true;
     coreDelay(500);
     xTaskCreatePinnedToCore(taskEntry,
@@ -132,7 +131,12 @@ bool HyphenRunner::initManager()
     {
         hyphen->resetConnectAttempts();
         connectionStarted = true;
+#ifndef HYPHEN_REREGISTER_ON_RECONNECT
+        // Default: the cloud catalog manifest is published once on first connect
+        // and not resent on reconnect. Define HYPHEN_REREGISTER_ON_RECONNECT to
+        // re-publish it every time the device re-establishes its MQTT session.
         sendRegistration = false;
+#endif
     }
 
     hyphen->manager.setLastAlive();

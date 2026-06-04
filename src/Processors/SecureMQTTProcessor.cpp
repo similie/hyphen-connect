@@ -243,9 +243,12 @@ bool SecureMQTTProcessor::loadCertificates()
         Log.errorln("CA file is empty");
         return false;
     }
-    certificates[CA] = caContent.c_str();
-    certificateLengths[CA] = caContent.length();
-    const char *caContentC = caContent.c_str();
+    // Keep the PEM data alive for the lifetime of the processor. caContent is a
+    // local String; pointing certificates[] at its c_str() would dangle once
+    // this function returns.
+    certStorage[CA] = caContent;
+    certificates[CA] = certStorage[CA].c_str();
+    certificateLengths[CA] = certStorage[CA].length();
     Log.noticeln("Loaded CA certificate:");
     Log.noticeln(caContent.substring(0, 20).c_str());
 #ifdef MQTT_DEVICE_CERTIFICATE
@@ -259,9 +262,9 @@ bool SecureMQTTProcessor::loadCertificates()
         return false;
     }
 
-    certificates[DeviceCertificate] = certContent.c_str();
-    const char *certContentC = certContent.c_str();
-    certificateLengths[DeviceCertificate] = certContent.length();
+    certStorage[DeviceCertificate] = certContent;
+    certificates[DeviceCertificate] = certStorage[DeviceCertificate].c_str();
+    certificateLengths[DeviceCertificate] = certStorage[DeviceCertificate].length();
     Log.noticeln("Loaded device certificate:");
     Log.noticeln(certContent.substring(0, 20).c_str());
 #ifdef MQTT_DEVICE_PRIVATE_KEY
@@ -275,9 +278,9 @@ bool SecureMQTTProcessor::loadCertificates()
         Log.errorln("Private key file is empty");
         return false;
     }
-    certificates[DevicePrivateKey] = keyContent.c_str();
-    certificateLengths[DevicePrivateKey] = keyContent.length();
-    const char *keyContentC = keyContent.c_str();
+    certStorage[DevicePrivateKey] = keyContent;
+    certificates[DevicePrivateKey] = certStorage[DevicePrivateKey].c_str();
+    certificateLengths[DevicePrivateKey] = certStorage[DevicePrivateKey].length();
     Log.noticeln("Loaded private key:");
     Log.noticeln(keyContent.substring(0, 20).c_str());
     fm.end();
@@ -326,7 +329,7 @@ bool SecureMQTTProcessor::setupSecureConnection()
     Log.notice("Setting up IoT connection... ");
     Log.noticeln(CLIENT_ID);
     uint8_t i = 0;
-    for (i; i <= MAX_CONNECTION_ATTEMPTS; i++)
+    for (; i < MAX_CONNECTION_ATTEMPTS; i++)
     {
         if (!connection.isConnected())
         {
@@ -356,7 +359,7 @@ bool SecureMQTTProcessor::setupSecureConnection()
     }
     MQTTConnected = mqttClient.connected();
     Log.noticeln("MQTT Connected: %d %s", i, String(MQTTConnected).c_str());
-    if (i > MAX_CONNECTION_ATTEMPTS && !MQTTConnected)
+    if (i >= MAX_CONNECTION_ATTEMPTS && !MQTTConnected)
     {
         if (connectCount >= restorationAttempts)
         {

@@ -4,8 +4,13 @@
 #include <vector>
 #include <memory>
 #include "connections/Connection.h"
+#ifndef HYPHEN_NATIVE_TEST
+// Concrete transports pull in WiFi.h / TinyGSM / mbedtls, which only exist on
+// the ESP32 target. Native unit tests inject FakeConnections instead and never
+// touch these, so they're excluded from the host build.
 #include "connections/WiFiConnection.h"
 #include "connections/Cellular.h"
+#endif
 #include <algorithm>
 
 template <typename T, typename... Args>
@@ -27,6 +32,10 @@ private:
 
 public:
     ConnectionManager(ConnectionType type);
+    // Test/advanced ctor: inject the ordered connection list directly instead of
+    // having the manager construct concrete WiFi/Cellular transports. Lets the
+    // failover/recovery logic be exercised against fakes on the host.
+    ConnectionManager(std::vector<std::unique_ptr<Connection>> conns, ConnectionType type);
     ~ConnectionManager();
     void restore() override;
     bool init() override;
@@ -43,13 +52,17 @@ public:
     SecureClient &getNewSecureClient() override;
     Connection &connection() override;
     ConnectionClass getClass() override;
-    GPSData getLocation();
     bool getTime(struct tm &, float &) override;
+    bool powerSave(bool) override;
+#ifndef HYPHEN_NATIVE_TEST
+    // Cellular/WiFi-specific helpers depend on the concrete transport types
+    // (GPSData, Cellular&, WiFiConnection&) and are excluded from the host build.
+    GPSData getLocation();
     Connection &getConnection(ConnectionClass);
     bool updateApn(const char *);
     bool updateSimPin(const char *);
     bool addWifiNetwork(const char *, const char *);
-    bool powerSave(bool);
+#endif
 };
 
 #endif // CONNECTIONMANAGER_H

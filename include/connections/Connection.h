@@ -77,8 +77,11 @@ public:
     virtual bool getTime(struct tm &, float &) = 0;
     virtual bool powerSave(bool) = 0;
     virtual void restore() = 0;
+    // Default returns self; concrete transports override. Defining this inline
+    // (rather than leaving it as an undefined key function) ensures the vtable
+    // for Connection is always emitted — clang otherwise drops it.
+    virtual Connection &connection() { return *this; }
     // Virtual Destructor
-    virtual Connection &connection();
     virtual ~Connection() {}
 };
 
@@ -108,6 +111,38 @@ public:
     // --- Connection state ---
     uint8_t connected() override { return 0; } // `Client::connected()` returns uint8_t  [oai_citation_attribution:0‡GitHub](https://github.com/arduino/ArduinoCore-avr/blob/master/cores/arduino/Client.h)
     operator bool() override { return false; } // matches `virtual operator bool()`  [oai_citation_attribution:1‡GitHub](https://github.com/arduino/ArduinoCore-avr/blob/master/cores/arduino/Client.h)
+};
+
+// Null-object SecureClient. Returned by ConnectionManager when there is no
+// active connection so callers never dereference a null transport. All
+// operations are inert and it reports "not connected".
+class NoOpSecureClient : public SecureClient
+{
+public:
+    NoOpSecureClient() {}
+    // --- SecureClient configuration (all inert) ---
+    void setCACert(const char *) override {}
+    void setCertificate(const char *) override {}
+    void setPrivateKey(const char *) override {}
+    void setPreSharedKey(const char *, const char *) override {}
+    void setInsecure() override {}
+    void setCACertBundle(const uint8_t *) override {}
+    void setHandshakeTimeout(unsigned long) override {}
+    bool verify(const char *, const char *) override { return false; }
+    void setClient(Client *) override {}
+    // --- Client interface ---
+    int connect(IPAddress, uint16_t) override { return 0; }
+    int connect(const char *, uint16_t) override { return 0; }
+    size_t write(uint8_t) override { return 0; }
+    size_t write(const uint8_t *, size_t) override { return 0; }
+    int available() override { return 0; }
+    int read() override { return -1; }
+    int read(uint8_t *, size_t) override { return -1; }
+    int peek() override { return -1; }
+    void flush() override {}
+    void stop() override {}
+    uint8_t connected() override { return 0; }
+    operator bool() override { return false; }
 };
 
 #endif

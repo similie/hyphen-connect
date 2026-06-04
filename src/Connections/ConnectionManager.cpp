@@ -1,5 +1,11 @@
 #include "connections/ConnectionManager.h"
 
+ConnectionManager::ConnectionManager(std::vector<std::unique_ptr<Connection>> conns, ConnectionType type)
+    : connections(std::move(conns)), preferredType(type), currentConnection(nullptr)
+{
+}
+
+#ifndef HYPHEN_NATIVE_TEST
 ConnectionManager::ConnectionManager(ConnectionType type)
     : preferredType(type), currentConnection(nullptr)
 {
@@ -22,6 +28,7 @@ ConnectionManager::ConnectionManager(ConnectionType type)
         break;
     }
 }
+#endif
 
 ConnectionManager::~ConnectionManager()
 {
@@ -38,6 +45,7 @@ void ConnectionManager::restore()
     return currentConnection->restore();
 }
 
+#ifndef HYPHEN_NATIVE_TEST
 void ConnectionManager::setCellular()
 {
     connections.push_back(make_unique<Cellular>());
@@ -45,7 +53,9 @@ void ConnectionManager::setCellular()
 
 void ConnectionManager::setWiFi()
 {
-    if (DEFAULT_WIFI_SSID && DEFAULT_WIFI_PASS)
+    // DEFAULT_WIFI_SSID/PASS are string literals, so the pointers are always
+    // truthy; check for a non-empty value to decide whether seed creds exist.
+    if (DEFAULT_WIFI_SSID[0] != '\0' && DEFAULT_WIFI_PASS[0] != '\0')
     {
         connections.push_back(make_unique<WiFiConnection>(DEFAULT_WIFI_SSID, DEFAULT_WIFI_PASS));
     }
@@ -54,6 +64,7 @@ void ConnectionManager::setWiFi()
         connections.push_back(make_unique<WiFiConnection>());
     }
 }
+#endif
 
 bool ConnectionManager::attemptConnection(Connection &conn)
 {
@@ -192,16 +203,33 @@ Client &ConnectionManager::getClient()
 
 SecureClient &ConnectionManager::secureClient()
 {
-    return currentConnection->secureClient();
+    if (currentConnection)
+    {
+        return currentConnection->secureClient();
+    }
+    // No active connection (e.g. just after disconnect()): hand back an inert
+    // client instead of dereferencing a null pointer.
+    static NoOpSecureClient dummy;
+    return dummy;
 }
 
 Client &ConnectionManager::getNewClient()
 {
-    return currentConnection->getNewClient();
+    if (currentConnection)
+    {
+        return currentConnection->getNewClient();
+    }
+    static NoOpClient dummy;
+    return dummy;
 }
 SecureClient &ConnectionManager::getNewSecureClient()
 {
-    return currentConnection->getNewSecureClient();
+    if (currentConnection)
+    {
+        return currentConnection->getNewSecureClient();
+    }
+    static NoOpSecureClient dummy;
+    return dummy;
 }
 
 Connection &ConnectionManager::connection()
@@ -240,6 +268,7 @@ bool ConnectionManager::getTime(struct tm &timeinfo, float &timezone)
     return false;
 }
 
+#ifndef HYPHEN_NATIVE_TEST
 Connection &ConnectionManager::getConnection(ConnectionClass findConnection)
 {
     for (auto &conn : connections)
@@ -279,3 +308,4 @@ bool ConnectionManager::addWifiNetwork(const char *ssid, const char *password)
     WiFiConnection &cellConn = (WiFiConnection &)getConnection(ConnectionClass::WIFI);
     return cellConn.addNetwork(ssid, password);
 }
+#endif
