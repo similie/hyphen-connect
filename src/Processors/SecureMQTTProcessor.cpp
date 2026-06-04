@@ -119,15 +119,16 @@ bool SecureMQTTProcessor::runMaintenance()
 {
     if (!connection.maintain())
     {
+        Log.warningln("[diag] maintain: transport down -> rebuild (heap=%u)", (unsigned)ESP.getFreeHeap());
         return false;
     }
     MQTTConnected = mqttClient.connected();
-    Log.noticeln("MQTT CONNECTION STATUS %s", String(MQTTConnected));
     if (MQTTConnected)
     {
+        Log.infoln("[diag] maintain: healthy (heap=%u)", (unsigned)ESP.getFreeHeap());
         return true;
     }
-    Log.noticeln("Reconnecting to MQTT...");
+    Log.warningln("[diag] maintain: MQTT socket down -> reconnect (heap=%u)", (unsigned)ESP.getFreeHeap());
     return reconnect();
 }
 
@@ -157,8 +158,14 @@ void SecureMQTTProcessor::loop()
         return;
     }
     loopEvent = true;
-    // health.loop();
-    mqttClient.loop();
+    // PubSubClient::loop() returns false the moment it detects the socket has
+    // dropped; surface that as a lost connection so the manager rebuilds promptly
+    // instead of waiting for the next keep-alive tick.
+    if (!mqttClient.loop())
+    {
+        MQTTConnected = false;
+        Log.warningln("[diag] mqtt loop detected dropped connection (heap=%u)", (unsigned)ESP.getFreeHeap());
+    }
     loopEvent = false;
 }
 

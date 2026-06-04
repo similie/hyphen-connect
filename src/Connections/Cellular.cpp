@@ -282,10 +282,16 @@ bool Cellular::on()
 // Turn off the modem
 bool Cellular::off()
 {
-    modem.poweroff();
+    modem.poweroff(); // graceful AT power-down (bounded by TinyGSM's internal timeout)
     connected = false;
-    digitalWrite(CELLULAR_POWER_PIN, LOW);
     powerOn = false;
+    // Authoritative hardware power-down: drop main power and the PWRKEY line, then
+    // hold so a wedged/unresponsive modem fully discharges before the next cold
+    // start (a bare AT poweroff can't recover a hung modem).
+    digitalWrite(CELLULAR_POWER_PIN, LOW);
+    digitalWrite(CELLULAR_POWER_PIN_AUX, LOW);
+    coreDelay(MODEM_POWER_OFF_SETTLE_MS);
+    Log.infoln("[diag] cellular powered down (settle %d ms)", (int)MODEM_POWER_OFF_SETTLE_MS);
     return true;
 }
 
@@ -465,7 +471,9 @@ bool Cellular::maintain()
     }
 
     lastTestMs = now;
-    if (!isConnected() || !internetPathTest())
+    bool reg = isConnected();
+    Log.infoln("[diag] cellular probe: reg=%d signal=%d", reg, getSignalQuality());
+    if (!reg || !internetPathTest())
     {
         return false;
     }

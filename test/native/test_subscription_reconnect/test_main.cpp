@@ -46,6 +46,19 @@ void test_loop_true_when_maintain_succeeds() {
   TEST_ASSERT_EQUAL_INT(1, proc.maintainCalls);
 }
 
+// A dropped socket is reacted to within one loop() iteration — without waiting
+// for the keep-alive interval to elapse.
+void test_loop_reacts_immediately_to_dropped_socket() {
+  FakeProcessor proc;
+  proc.isConnectedScript = {false};  // socket dropped this iteration
+  proc.maintainScript = {false};     // and recovery fails -> rebuild
+  SubscriptionManager mgr(proc);
+  // NOTE: clock NOT advanced — keep-alive interval has not elapsed.
+
+  TEST_ASSERT_FALSE(mgr.loop());  // still reacts immediately
+  TEST_ASSERT_EQUAL_INT(1, proc.maintainCalls);
+}
+
 // On reconnect HyphenRunner calls init(sendRegistration=false): topics must be
 // re-subscribed, but the cloud catalog manifest is intentionally NOT re-sent.
 void test_registration_not_resent_on_reconnect() {
@@ -88,6 +101,7 @@ int main(int, char**) {
   RUN_TEST(test_loop_true_before_keepalive_interval);
   RUN_TEST(test_loop_false_when_maintain_fails);
   RUN_TEST(test_loop_true_when_maintain_succeeds);
+  RUN_TEST(test_loop_reacts_immediately_to_dropped_socket);
   RUN_TEST(test_registration_not_resent_on_reconnect);
   RUN_TEST(test_registration_published_on_first_connect);
   return UNITY_END();

@@ -102,6 +102,7 @@ bool HyphenRunner::initManager()
     {
         return false;
     }
+    unsigned long bringupStart = millis();
     while (!hyphen->manager.isConnected() && runConnection)
     {
         hyphen->incrementConnectAttempts();
@@ -129,6 +130,8 @@ bool HyphenRunner::initManager()
 
     if (runConnection)
     {
+        Log.noticeln("[diag] connection established in %lu ms (heap=%u)",
+                     millis() - bringupStart, (unsigned)ESP.getFreeHeap());
         hyphen->resetConnectAttempts();
         connectionStarted = true;
 #ifndef HYPHEN_REREGISTER_ON_RECONNECT
@@ -145,6 +148,8 @@ bool HyphenRunner::initManager()
 
 void HyphenRunner::rebuildConnection()
 {
+    Log.warningln("[diag] rebuild: tearing down + power-cycling (attempts=%u heap=%u)",
+                  hyphen->getConnectAttempts(), (unsigned)ESP.getFreeHeap());
     Log.infoln(F("[Runner] rebuilding connection..."));
     breakConnector();
     connectionStarted = false;

@@ -331,6 +331,14 @@ bool SubscriptionManager::loop()
 
     processor.loop();
 
+    // React immediately if the MQTT socket has dropped, rather than waiting for
+    // the keep-alive interval to elapse — shrinks the dead-connection window from
+    // up to KEEP_ALIVE_INTERVAL seconds down to a single loop iteration.
+    if (!processor.isConnected())
+    {
+        return maintain();
+    }
+
     if (!keepAliveReady())
     {
         return true;

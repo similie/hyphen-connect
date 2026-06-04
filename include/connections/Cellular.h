@@ -47,6 +47,9 @@ NETWORK_MODE 2
 #ifndef NETWORK_ATTACH_RETRIES
 #define NETWORK_ATTACH_RETRIES 10 // GPRS attach confirmations (1s apart)
 #endif
+#ifndef MODEM_POWER_OFF_SETTLE_MS
+#define MODEM_POWER_OFF_SETTLE_MS 2000 // hold after power-down so a wedged modem fully discharges before a cold restart
+#endif
 
     enum class SimType {
         SIM7070,
