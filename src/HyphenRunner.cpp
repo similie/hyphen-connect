@@ -1,5 +1,16 @@
 #include "HyphenRunner.h"
 #include "HyphenConnect.h"
+#include "Backoff.h"
+
+// Reconnect backoff bounds. Attempts are unlimited (a field device must keep
+// trying), but the delay between them grows exponentially from BASE up to MAX so
+// an outage doesn't become a reconnect storm against the broker/modem.
+#ifndef HYPHEN_RECONNECT_BACKOFF_BASE_MS
+#define HYPHEN_RECONNECT_BACKOFF_BASE_MS 500
+#endif
+#ifndef HYPHEN_RECONNECT_BACKOFF_MAX_MS
+#define HYPHEN_RECONNECT_BACKOFF_MAX_MS 30000
+#endif
 HyphenRunner &HyphenRunner::get()
 {
     static HyphenRunner inst;
@@ -12,7 +23,6 @@ HyphenRunner::HyphenRunner()
 
 void HyphenRunner::startRunnerTask()
 {
-    eg = xEventGroupCreate();
     runConnection = true;
     coreDelay(500);
     xTaskCreatePinnedToCore(taskEntry,
@@ -103,21 +113,28 @@ bool HyphenRunner::initManager()
     {
         return false;
     }
+    unsigned long bringupStart = millis();
     while (!hyphen->manager.isConnected() && runConnection)
     {
         hyphen->incrementConnectAttempts();
         while (!hyphen->connection.isConnected() && !hyphen->connection.init() && runConnection)
         {
-            Log.infoln(F("[Runner] connection::init() failed, retry in 500 ms"));
-            coreDelay(500);
+            unsigned long backoff = hyphen::backoff::delayMs(
+                hyphen->getConnectAttempts(), HYPHEN_RECONNECT_BACKOFF_BASE_MS,
+                HYPHEN_RECONNECT_BACKOFF_MAX_MS);
+            Log.infoln(F("[Runner] connection::init() failed, retry in %lu ms"), backoff);
+            coreDelay(backoff);
             hyphen->incrementConnectAttempts();
         }
         coreDelay(500);
         Log.infoln(F("[Runner] connection::init() succeeded"));
         while (hyphen->connection.isConnected() && !hyphen->manager.init(sendRegistration) && runConnection)
         {
-            Log.infoln(F("[Runner] manager::init() failed, retry in 500 ms"));
-            coreDelay(500);
+            unsigned long backoff = hyphen::backoff::delayMs(
+                hyphen->getConnectAttempts(), HYPHEN_RECONNECT_BACKOFF_BASE_MS,
+                HYPHEN_RECONNECT_BACKOFF_MAX_MS);
+            Log.infoln(F("[Runner] manager::init() failed, retry in %lu ms"), backoff);
+            coreDelay(backoff);
             hyphen->incrementConnectAttempts();
             if (!hyphen->connection.maintain())
             {
@@ -130,9 +147,16 @@ bool HyphenRunner::initManager()
 
     if (runConnection)
     {
+        Log.noticeln("[diag] connection established in %lu ms (heap=%u)",
+                     millis() - bringupStart, (unsigned)ESP.getFreeHeap());
         hyphen->resetConnectAttempts();
         connectionStarted = true;
+#ifndef HYPHEN_REREGISTER_ON_RECONNECT
+        // Default: the cloud catalog manifest is published once on first connect
+        // and not resent on reconnect. Define HYPHEN_REREGISTER_ON_RECONNECT to
+        // re-publish it every time the device re-establishes its MQTT session.
         sendRegistration = false;
+#endif
     }
 
     hyphen->manager.setLastAlive();
@@ -141,6 +165,8 @@ bool HyphenRunner::initManager()
 
 void HyphenRunner::rebuildConnection()
 {
+    Log.warningln("[diag] rebuild: tearing down + power-cycling (attempts=%u heap=%u)",
+                  hyphen->getConnectAttempts(), (unsigned)ESP.getFreeHeap());
     Log.infoln(F("[Runner] rebuilding connection..."));
     breakConnector();
     connectionStarted = false;

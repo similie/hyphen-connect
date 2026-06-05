@@ -35,6 +35,22 @@ NETWORK_MODE 2
 #ifndef CELLULAR_TEST_INTERVAL_MS
 #define CELLULAR_TEST_INTERVAL_MS 90000 // 1.5 minute
 #endif
+
+// Bounds on the (blocking) modem bring-up/recovery sequence. Named so the
+// worst-case recovery time is visible and tunable per deployment via build_flags.
+#ifndef MODEM_READY_TIMEOUT_MS
+#define MODEM_READY_TIMEOUT_MS 60000 // max wait for the modem to answer AT
+#endif
+#ifndef NETWORK_REGISTRATION_TIMEOUT_MS
+#define NETWORK_REGISTRATION_TIMEOUT_MS 20000 // max wait for network registration
+#endif
+#ifndef NETWORK_ATTACH_RETRIES
+#define NETWORK_ATTACH_RETRIES 10 // GPRS attach confirmations (1s apart)
+#endif
+#ifndef MODEM_POWER_OFF_SETTLE_MS
+#define MODEM_POWER_OFF_SETTLE_MS 2000 // hold after power-down so a wedged modem fully discharges before a cold restart
+#endif
+
     enum class SimType {
         SIM7070,
         SIM7600
@@ -232,7 +248,6 @@ public:
     void restore() override;
     bool init();
     bool maintain();
-    bool maintainLocal();
     bool internetPathTest();
     TinyGsm &getModem();
     Client &getClient() override;
@@ -284,9 +299,6 @@ private:
     bool powerOn = false;
     uint8_t keepAliveInterval; // Store the delay interval in seconds
     TaskHandle_t keepAliveHandle = NULL;
-    TaskHandle_t maintainHandle = NULL;    // Task handle for maintain task
-    static void maintainTask(void *param); // Task function for maintain
-    uint32_t maintainIntervalMs = 5000;    // Interval for maintain checks (5 seconds, adjustable)
     uint8_t connectionAttempts = 0;
     unsigned long lastTestMs = 0;
     const uint8_t maxConnectionAttempts = 5;

@@ -89,6 +89,17 @@ public:
     bool ready();
     String runFunction(const char *, const char *);
     String runVariable(const char *, const char *);
+    // Pure: builds the function/variable registration manifest JSON published to
+    // the cloud (cataloging only). Extracted so it can be asserted without I/O.
+    String buildRegistryPayload();
+
+#ifdef HYPHEN_NATIVE_TEST
+    // Test seams: the real registration flow is driven by hardware Tickers
+    // (faked to no-ops natively), so tests trigger the loop() branches directly.
+    void test_setApplyRegistration(bool v) { applyRegistration = v; }
+    void test_setCheckReady(bool v) { checkReady = v; }
+    bool test_keepAliveReady() { return keepAliveReady(); }
+#endif
 
 private:
     Ticker tick;

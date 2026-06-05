@@ -88,6 +88,7 @@ private:
     // String certificates[CERT_LENGTH];
     const char *certificates[CERT_LENGTH];  // pointers to PEM data
     size_t certificateLengths[CERT_LENGTH]; // lengths of each PEM
+    String certStorage[CERT_LENGTH];        // owns file-loaded PEM data so certificates[] never dangles
     bool certsCached = false;
     enum cachedCertificates
     {
@@ -104,7 +105,6 @@ private:
     bool initialized = false;
     FileManager fm;
     LightManager light;
-    TaskHandle_t maintainConnectHandle = NULL;
     uint8_t connectCount = 0;
     const uint16_t KEEP_ALIVE = MQTT_KEEP_ALIVE_INTERVAL; // Keep-alive interval in seconds
     const char *CLIENT_ID = DEVICE_PUBLIC_ID;
@@ -137,8 +137,6 @@ private:
     // bool maintaining = false;
     const size_t restorationAttempts = 5;
     Ticker _keepAliveTicker;
-    TaskHandle_t maintenceHandle = nullptr;
-    esp_timer_handle_t _maintenanceTimer;
     // void stopMaintenanceTicker();
     // void setMaintenanceTicker();
     // void resetMaintenanceTicker();

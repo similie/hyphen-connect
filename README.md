@@ -211,6 +211,11 @@ CELLULAR_TEST_URL "ping.similie.com" // we check a path to reinforce the connect
 CELLULAR_TEST_PORT 80 // the path tcp port, we and not using the secure connection
 CELLULAR_TEST_INTERVAL_MS 60000 // we test every 1 minute and default to isConnected
 NO_CELLULAR_TEST_INTERVAL_MAINTAIN // optional bypass flag to avoid the test interval feature
+MODEM_READY_TIMEOUT_MS 60000 // max time to wait for the modem to answer AT during bring-up
+NETWORK_REGISTRATION_TIMEOUT_MS 20000 // max time to wait for cellular network registration
+NETWORK_ATTACH_RETRIES 10 // GPRS attach confirmation retries (1s apart) during connect
+MODEM_POWER_OFF_SETTLE_MS 2000 // hold after power-down so a wedged modem fully discharges before a cold restart
+HYPHEN_REREGISTER_ON_RECONNECT // define to re-publish the function/variable catalog on every reconnect (default: only on first connect)
 ```
 
 ### About Similie
